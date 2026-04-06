@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+pandas
+numpy
+yfinance
+scikit-learn
+pyportfolioopt
+python-dotenv
+google-generativeai
+python-multipart
