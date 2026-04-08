@@ -530,6 +530,9 @@ export default function Home() {
     try {
       const res = await fetch("http://localhost:8000/analyze", {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
         body: form,
       });
       const data = await res.json();

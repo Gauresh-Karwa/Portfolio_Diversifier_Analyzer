@@ -1,4 +1,5 @@
-from fastapi import FastAPI, File, UploadFile, Form
+from fastapi import FastAPI, File, UploadFile, Form, Depends, HTTPException, Header
+from jose import jwt, JWTError
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import io
@@ -14,6 +15,21 @@ if api_key:
 else:
     print("DEBUG: GEMINI_API_KEY NOT FOUND!")
 genai.configure(api_key=api_key, transport='rest')
+
+JWT_SECRET = os.getenv("JWT_SECRET", "secret123")
+JWT_ALGORITHM = "HS256"
+
+
+def verify_jwt(authorization: str = Header(None)):
+    """Dependency that validates the Bearer JWT from auth_backend."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+    token = authorization[len("Bearer "):]
+    try:
+        jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
 
 app = FastAPI()
 
@@ -66,7 +82,7 @@ Use simple, encouraging Indian market perspective.
     return prompt
 
 
-@app.post("/analyze")
+@app.post("/analyze", dependencies=[Depends(verify_jwt)])
 async def analyze(
     file: UploadFile = File(...),
     new_cash: float = Form(0.0),

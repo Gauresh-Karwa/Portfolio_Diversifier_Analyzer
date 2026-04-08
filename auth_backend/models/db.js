@@ -1,24 +1,11 @@
-const mysql = require("mysql2/promise");
+const mongoose = require("mongoose");
 
+const mongo_url=process.env.mongo_url;
 
-const db = mysql.createPool({
-    host: "sql12.freesqldatabase.com",
-    user: "sql12820182",
-    password: "RvgtKUreEp",
-    database: "sql12820182",
-    waitForConnections: true,
-    connectionLimit: 10
-});
-
-// test connection
-(async () => {
-    try {
-        const conn = await db.getConnection();
-        console.log(" MySQL Connected");
-        conn.release();
-    } catch (err) {
-        console.log(" DB Error:", err);
-    }
-})();
-
-module.exports = db;
+mongoose.connect(mongo_url)
+  .then(() => {
+    console.log("mongodb connected");
+  })
+  .catch((err) => {
+    console.log("mongodb error", err);
+  });

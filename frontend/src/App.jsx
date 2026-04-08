@@ -9,19 +9,11 @@ import RefreshHandler from './refreshhandler';
 
 
 function App() {
-  const [isAuthenticated,setIsAuthenticated]=useState(true); 
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  useEffect(() => {
-    // Mock user for bypass
-    if (!localStorage.getItem('loggedinuser')) {
-      localStorage.setItem('loggedinuser', 'Admin User');
-      localStorage.setItem('token', 'fake-token-123');
-    }
-  }, []);
-
-  const PrivateRoute=({element})=>{
-    return element; // Always allowed for testing
-  }
+  const PrivateRoute = ({ element }) => {
+    return isAuthenticated ? element : <Navigate to="/login" />;
+  };
 
   return (
     <>
