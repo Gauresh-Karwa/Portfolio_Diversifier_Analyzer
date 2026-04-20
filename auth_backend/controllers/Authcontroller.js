@@ -1,6 +1,7 @@
 const userModel = require("../models/user");
 const bcrypt=require('bcrypt');
 const jwt =require("jsonwebtoken");
+const { encryptData, decryptData } = require("../utils/encryption");
 
 const signup=async(req,res)=>{
     try{
@@ -79,6 +80,62 @@ const login=async(req,res)=>{
     }
 }
 
+const getPortfolio = async (req, res) => {
+    try {
+        const user = await userModel.findById(req.user._id);
+        if (!user) {
+            return res.status(404).json({ message: "User not found", success: false });
+        }
+        let parsedInvestments = [];
+        try {
+            if (user.investments && user.investments.includes(":")) {
+                parsedInvestments = JSON.parse(decryptData(user.investments) || "[]");
+            }
+        } catch (e) {
+            console.error("Failed to parse decrypted investments", e);
+        }
+
+        res.status(200).json({
+            success: true,
+            portfolio: {
+                investments: parsedInvestments,
+                age: user.age && user.age.includes(":") ? decryptData(user.age) : "",
+                goal: user.goal && user.goal.includes(":") ? decryptData(user.goal) : ""
+            }
+        });
+    } catch (err) {
+        console.log(err);
+        res.status(500).json({ message: "Internal server error", success: false });
+    }
+};
+
+const updatePortfolio = async (req, res) => {
+    try {
+        const { investments, age, goal } = req.body;
+        
+        // Military-grade AES-256-GCM encryption before hitting MongoDB
+        const encryptedInvestments = encryptData(JSON.stringify(investments || []));
+        const encryptedAge = encryptData(age || "");
+        const encryptedGoal = encryptData(goal || "");
+
+        const user = await userModel.findByIdAndUpdate(
+            req.user._id,
+            { investments: encryptedInvestments, age: encryptedAge, goal: encryptedGoal },
+            { new: true }
+        );
+        if (!user) {
+            return res.status(404).json({ message: "User not found", success: false });
+        }
+        res.status(200).json({
+            success: true,
+            message: "Portfolio updated successfully"
+        });
+    } catch (err) {
+        console.log(err);
+        res.status(500).json({ message: "Internal server error", success: false });
+    }
+};
+
 module.exports={
-    signup,login
+    signup, login, getPortfolio, updatePortfolio
 }

@@ -81,11 +81,11 @@ const FloatingCard = ({ icon, label, top, left, right, bottom, delay }) => (
 
 
 // 2. Features Section
-const FeaturesBento = () => {
+const FeaturesBento = ({ navigate }) => {
   return (
     <div className="py-24 px-6 mx-auto max-w-7xl">
       <h2 className="text-4xl md:text-5xl font-bold text-center text-white mb-16">
-        What you'll unlock inside <span className="text-blue-500">Auric</span>
+        What you'll unlock inside <span className="text-blue-500">Portfolio Diversification Analyzer</span>
       </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-3 md:grid-rows-2 gap-6 h-auto md:h-[800px]">
@@ -116,7 +116,7 @@ const FeaturesBento = () => {
             </li>
           </ul>
 
-          <button className="mt-8 bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold">
+          <button onClick={() => navigate('/signup')} className="mt-8 bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold">
             Try it now
           </button>
         </motion.div>
@@ -193,7 +193,7 @@ const HowItWorksSection = () => {
     },
     {
       title: "AI Portfolio Analysis",
-      desc: "Auric analyzes diversification, sector exposure, and risk."
+      desc: "Portfolio Diversification Analyzer analyzes diversification, sector exposure, and risk."
     },
     {
       title: "Get Smart Insights",
@@ -205,7 +205,7 @@ const HowItWorksSection = () => {
     <div className="py-24 bg-black">
 
       <h2 className="text-5xl font-bold text-center text-white mb-16">
-        How Auric Works
+        How Portfolio Diversification Analyzer Works
       </h2>
 
       <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-10">
@@ -324,7 +324,7 @@ export default function LandingPage() {
 
       </div>
 
-      <FeaturesBento />
+      <FeaturesBento navigate={navigate} />
 
       <HowItWorksSection />
 
@@ -346,7 +346,7 @@ export default function LandingPage() {
       </div>
 
       <footer className="bg-black py-8 text-center text-gray-600 text-sm">
-        © 2026 Auric Financial Systems. All rights reserved.
+        © 2026 Portfolio Diversification Analyzer. All rights reserved.
       </footer>
 
     </div>

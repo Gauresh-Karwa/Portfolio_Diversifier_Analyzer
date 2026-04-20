@@ -2,6 +2,8 @@ import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { handleSuccess } from "../utils";
 import { ToastContainer, toast } from "react-toastify";
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 const Icon = ({ d, size = 20, color = "currentColor", strokeWidth = 1.8 }) => (
@@ -66,7 +68,7 @@ function parseCSV(text) {
   const lines = text.trim().split("\n");
   if (lines.length < 2) throw new Error("CSV must have a header row and at least one data row.");
   const headers = lines[0].split(delimiter).map(h => h.trim().toLowerCase().replace(/['"]/g, ""));
-  
+
   const nameIdx = headers.findIndex(h => ["name", "investment", "stock", "fund", "symbol", "instrument", "ticker"].some(k => h.includes(k)));
   const amtIdx = headers.findIndex(h => ["amount", "value", "invested", "market value", "current value"].some(k => h.includes(k)));
   const qtyIdx = headers.findIndex(h => ["qty", "quantity", "shares"].some(k => h.includes(k)));
@@ -74,14 +76,14 @@ function parseCSV(text) {
   const catIdx = headers.findIndex(h => ["category", "type", "cap"].some(k => h.includes(k)));
 
   if (nameIdx === -1) throw new Error("CSV must include an 'Investment' or 'Symbol' column.");
-  if (amtIdx === -1 && (qtyIdx === -1 || priceIdx === -1)) 
+  if (amtIdx === -1 && (qtyIdx === -1 || priceIdx === -1))
     throw new Error("CSV must include an 'Amount' column OR 'Quantity' and 'Price' columns.");
 
   const rows = [];
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(delimiter).map(c => c.trim().replace(/['"]/g, ""));
     if (cols.length < 2 || !cols[nameIdx]) continue;
-    
+
     let amt = 0;
     if (amtIdx !== -1 && cols[amtIdx]) {
       amt = parseFloat(cols[amtIdx].replace(/[^0-9.]/g, ""));
@@ -301,14 +303,14 @@ function BarChart({ pct }) {
 // ─── Benchmark chart (Current vs Ideal) ──────────────────────────────────────
 function BenchmarkChart({ pct, age, goal }) {
   const ideal = getRecommendations(parseInt(age), goal);
-  
+
   return (
     <div className="space-y-4">
       {ideal.map(rec => {
         const current = pct[rec.category] || 0;
         const targetRange = rec.range.split("–").map(s => parseInt(s));
         const midTarget = (targetRange[0] + (targetRange[1] || targetRange[0])) / 2;
-        
+
         return (
           <div key={rec.category} className="group">
             <div className="flex justify-between items-end mb-1">
@@ -319,25 +321,25 @@ function BenchmarkChart({ pct, age, goal }) {
             </div>
             <div className="relative h-6 bg-gray-100 rounded-lg overflow-hidden border border-gray-100">
               {/* Target Band Highlight */}
-              <div 
+              <div
                 className="absolute h-full bg-blue-50 border-x border-blue-100/30"
-                style={{ 
-                  left: `${targetRange[0]}%`, 
-                  width: `${(targetRange[1] || targetRange[0]) - targetRange[0]}%` 
+                style={{
+                  left: `${targetRange[0]}%`,
+                  width: `${(targetRange[1] || targetRange[0]) - targetRange[0]}%`
                 }}
               />
               {/* Current Progress Bar */}
-              <div 
+              <div
                 className="absolute h-full rounded-lg transition-all duration-1000 shadow-sm"
-                style={{ 
-                  width: `${Math.min(current, 100)}%`, 
+                style={{
+                  width: `${Math.min(current, 100)}%`,
                   background: CATEGORY_COLORS[rec.category],
                   opacity: 0.85
-                }} 
+                }}
               />
               {/* Mid-point Marker */}
-              <div 
-                className="absolute h-full w-0.5 bg-blue-400/50" 
+              <div
+                className="absolute h-full w-0.5 bg-blue-400/50"
                 style={{ left: `${midTarget}%` }}
               />
             </div>
@@ -405,11 +407,69 @@ export default function Home() {
 
   const fileInputRef = useRef();
 
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [initialLoadSpinner, setInitialLoadSpinner] = useState(true);
+
+  // ── Auth & Data Fetch on Load ──
   useEffect(() => {
-    const user = localStorage.getItem("loggedinuser");
-    if (!user) navigate("/login");
-    else setLoggedInUser(user);
+    const initData = async () => {
+      const token = localStorage.getItem("token");
+      const user = localStorage.getItem("loggedinuser");
+      
+      if (!token || !user) {
+        navigate("/login");
+        return;
+      }
+      setLoggedInUser(user);
+
+      try {
+        const res = await fetch("http://localhost:8080/auth/portfolio", {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success && data.portfolio) {
+          if (data.portfolio.investments && data.portfolio.investments.length > 0) {
+            setInvestments(data.portfolio.investments);
+            setAnalysis(analyzePortfolio(data.portfolio.investments));
+          }
+          if (data.portfolio.age) setAge(data.portfolio.age);
+          if (data.portfolio.goal) setGoal(data.portfolio.goal);
+        }
+      } catch (err) {
+        console.error("Failed to sync portfolio", err);
+      } finally {
+        setIsInitializing(false);
+        setInitialLoadSpinner(false);
+      }
+    };
+    initData();
   }, [navigate]);
+
+  // ── Auto-save Portfolio on Change ──
+  useEffect(() => {
+    if (isInitializing) return; // don't auto-save while fetching initial state
+    
+    const savePortfolio = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      try {
+        await fetch("http://localhost:8080/auth/portfolio", {
+          method: "POST",
+          headers: { 
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ investments, age, goal })
+        });
+      } catch (err) {
+        console.error("Auto-save failed:", err);
+      }
+    };
+    
+    // 1-second debounce to prevent spamming the database
+    const timeoutId = setTimeout(savePortfolio, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [investments, age, goal, isInitializing]);
 
   // Auto-analysis when reaching Analysis tab
   useEffect(() => {
@@ -553,9 +613,221 @@ export default function Home() {
 
   const totalValue = investments.reduce((s, i) => s + i.amount, 0);
 
+  const handleDownloadPDF = async () => {
+    try {
+      toast.info("Generating Premium PDF Report... (5s)", { autoClose: 5000 });
+      
+      // Delay for 5 seconds as requested
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      let y = 20;
+      const marginX = 20;
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      
+      // 1. Draw Header Background Bubble
+      pdf.setFillColor(30, 27, 75); // Dark Indigo
+      pdf.rect(0, 0, pageWidth, 40, 'F');
+      
+      // 2. Document Title
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(22);
+      pdf.setTextColor(255, 255, 255); 
+      pdf.text("Portfolio Diversification Analyzer", marginX, 20);
+      
+      // 3. Subtitle
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(11);
+      pdf.setTextColor(199, 210, 254); // indigo-200
+      pdf.text(`User: ${loggedInUser}  |  Age: ${age} yrs  |  Goal: ${goal}`, marginX, 30);
+      
+      y = 55;
+      
+      // 4. Current Portfolio Holdings List
+      if (investments && investments.length > 0) {
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(16);
+        pdf.setTextColor(15, 23, 42); // slate-900
+        pdf.text("Current Portfolio Holdings", marginX, y);
+        
+        y += 6;
+        pdf.setDrawColor(226, 232, 240); // line slate-200
+        pdf.line(marginX, y, pageWidth - marginX, y);
+        y += 8;
+        
+        pdf.setFontSize(11);
+        investments.forEach((inv, index) => {
+          if (y > 270) { pdf.addPage(); y = 20; }
+          
+          // Stock Name
+          pdf.setFont("helvetica", "bold");
+          pdf.setTextColor(51, 65, 85);
+          pdf.text(`${index + 1}. ${inv.name.substring(0, 35)}`, marginX, y);
+          
+          // Equity Category
+          pdf.setFont("helvetica", "italic");
+          pdf.setTextColor(100, 116, 139);
+          pdf.text(`[${inv.category}]`, marginX + 80, y);
+          
+          // Amount
+          pdf.setFont("helvetica", "bold");
+          pdf.setTextColor(15, 23, 42);
+          pdf.text(`Rs. ${inv.amount.toLocaleString("en-IN")}`, pageWidth - marginX - 35, y);
+          
+          y += 7;
+        });
+        
+        // Total Value
+        y += 2;
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(12);
+        pdf.setTextColor(37, 99, 235); // blue-600
+        pdf.text(`Total Invested: Rs. ${totalValue.toLocaleString("en-IN")}`, pageWidth - marginX - 55, y);
+        
+        y += 15;
+      }
+      
+      // 5. Report Title
+      if (y > 250) { pdf.addPage(); y = 20; }
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(18);
+      pdf.setTextColor(15, 23, 42); // slate-900
+      pdf.text("AI Strategist Analysis", marginX, y);
+      
+      y += 6;
+      pdf.setDrawColor(226, 232, 240); // line color slate-200
+      pdf.line(marginX, y, pageWidth - marginX, y);
+      y += 10;
+      
+      // 6. Parse LLM Text Line-by-Line to style Headers vs Bullets
+      if (mlData && mlData.llm_recommendation) {
+        const lines = mlData.llm_recommendation.split('\n').filter(l => l.trim() !== '');
+        
+        lines.forEach(line => {
+          // Page breaks check
+          if (y > 270) {
+            pdf.addPage();
+            y = 20;
+          }
+
+          const rawLine = line.trim().replace(/\\*/g, '');
+          const isHeading = rawLine.match(/^[🎇📊🎯💡🔮]/) || (rawLine === rawLine.toUpperCase() && rawLine.length < 50 && !rawLine.startsWith("•"));
+          
+          // Strip emojis and unsupported chars for standard jsPDF fonts, but keep normal math / quotes
+          let safeLine = rawLine
+            .replace(/₹/g, 'Rs. ')
+            .replace(/[‘’]/g, "'")
+            .replace(/[“”]/g, '"')
+            .replace(/[^\x00-\x7F]/g, "") // fallback strip any remaining emojis
+            .trim();
+          
+          // Is it a Heading?
+          if (isHeading) {
+            y += 6;
+            pdf.setFont("helvetica", "bold");
+            pdf.setFontSize(13);
+            pdf.setTextColor(37, 99, 235); // Blue-600
+            
+            const titleLines = pdf.splitTextToSize(safeLine, pageWidth - marginX * 2);
+            pdf.text(titleLines, marginX, y);
+            y += (titleLines.length * 6) + 4;
+            
+          } else if (rawLine.startsWith("•")) {
+            // It's a Bullet Point
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(11);
+            pdf.setTextColor(71, 85, 105); // Slate-600
+            
+            const textWithoutBullet = safeLine.replace(/^[\s•\-\*]+/, '').trim();
+            const bulletLines = pdf.splitTextToSize(textWithoutBullet, pageWidth - marginX * 2 - 6);
+            
+            // Draw custom bullet circle
+            pdf.setFillColor(96, 165, 250); // Blue-400
+            pdf.circle(marginX + 2, y - 1.5, 1.2, 'F');
+            
+            pdf.text(bulletLines, marginX + 6, y);
+            y += (bulletLines.length * 5.5) + 3;
+            
+          } else {
+            // Normal fallback paragraph
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(11);
+            pdf.setTextColor(51, 65, 85); // Slate-700
+            
+            const normalLines = pdf.splitTextToSize(safeLine, pageWidth - marginX * 2);
+            pdf.text(normalLines, marginX, y);
+            y += (normalLines.length * 5) + 3;
+          }
+        });
+      }
+      
+      // 6. Styled Trades Data Table
+      if (mlData && mlData.recommendations && Object.keys(mlData.recommendations).length > 0) {
+        y += 10;
+        if (y > 240) { pdf.addPage(); y = 20; }
+        
+        const rowHeight = 9;
+        const boxHeight = 12 + (Object.keys(mlData.recommendations).length * rowHeight);
+        
+        pdf.setFillColor(248, 250, 252); // slate-50
+        pdf.setDrawColor(203, 213, 225); // slate-300
+        pdf.roundedRect(marginX, y, pageWidth - marginX * 2, boxHeight, 3, 3, 'FD');
+        
+        y += 9;
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(12);
+        pdf.setTextColor(15, 23, 42); // slate-900
+        pdf.text("Recommended Action Plan", marginX + 6, y);
+        y += 8;
+        
+        pdf.setFontSize(11);
+        Object.entries(mlData.recommendations).forEach(([sym, amt]) => {
+          // Buy tag
+          pdf.setFont("helvetica", "bold");
+          pdf.setTextColor(16, 185, 129); // emerald-500
+          pdf.text("B U Y", marginX + 6, y);
+          
+          // Symbol
+          pdf.setFont("helvetica", "normal");
+          pdf.setTextColor(71, 85, 105);
+          pdf.text(`${sym.replace(".NS", "")}`, marginX + 25, y);
+          
+          // Price
+          pdf.setFont("helvetica", "bold");
+          pdf.setTextColor(15, 23, 42);
+          pdf.text(`Rs. ${amt.toLocaleString("en-IN")}`, pageWidth - marginX - 35, y);
+          y += rowHeight;
+        });
+      }
+      
+      // 7. Watermarks on all pages
+      const numPages = pdf.internal.getNumberOfPages();
+      for (let i = 1; i <= numPages; i++) {
+        pdf.setPage(i);
+        pdf.setFont("helvetica", "italic");
+        pdf.setFontSize(8);
+        pdf.setTextColor(156, 163, 175); // gray-400
+        pdf.text("Generated securely by Portfolio Diversification Analyzer.", marginX, 287);
+        pdf.text(`Page ${i}`, pageWidth - marginX - 10, 287);
+      }
+      
+      pdf.save("Premium_Portfolio_Analysis.pdf");
+      toast.success("Premium PDF Downloaded successfully!");
+    } catch (e) {
+      console.error(e);
+      toast.error(`PDF Error: ${e.message}`);
+    }
+  };
+
   // ═══════════════════════════════════════════════════════════════════════════
   return (
     <div style={{ fontFamily: "'DM Sans','Segoe UI',sans-serif" }} className="min-h-screen bg-gray-50 flex flex-col">
+      {initialLoadSpinner && (
+        <div className="fixed inset-0 bg-white/90 z-[9999] flex flex-col items-center justify-center">
+          <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+          <p className="mt-4 text-sm font-semibold text-gray-600">Loading your portfolio...</p>
+        </div>
+      )}
 
       {/* ── NAVBAR (unchanged) ── */}
       <nav className="bg-white border-b border-gray-200 px-4 md:px-8 py-3 flex items-center justify-between sticky top-0 z-50 shadow-sm">
@@ -620,7 +892,7 @@ export default function Home() {
                     {analysis.diversified ? " Diversified" : "Needs Balance"}
                   </div>
                 )}
-              </div> 
+              </div>
             </div>
           )}
         </aside>
@@ -673,7 +945,7 @@ export default function Home() {
                       className="pl-7 pr-3 py-2 border border-gray-200 rounded-lg text-sm w-full sm:w-40 focus:outline-none focus:border-blue-400"
                     />
                   </div>
-                  {rawFile && (
+                  {investments.length > 0 && (
                     <button
                       onClick={handleFullAnalysis}
                       disabled={mlLoading}
@@ -1008,10 +1280,10 @@ export default function Home() {
                         <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
                           <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Annual Volatility</p>
                           <div className="flex items-baseline gap-2 mt-1">
-                             <p className="text-xl font-bold text-indigo-600">{mlData.metrics.annual_volatility_pct}%</p>
-                             {mlData.pro_forma?.annual_volatility_pct && (
-                               <p className="text-xs font-bold text-emerald-500">→ {mlData.pro_forma.annual_volatility_pct}%</p>
-                             )}
+                            <p className="text-xl font-bold text-indigo-600">{mlData.metrics.annual_volatility_pct}%</p>
+                            {mlData.pro_forma?.annual_volatility_pct && (
+                              <p className="text-xs font-bold text-emerald-500">→ {mlData.pro_forma.annual_volatility_pct}%</p>
+                            )}
                           </div>
                         </div>
                         <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
@@ -1019,7 +1291,7 @@ export default function Home() {
                           <div className="flex items-baseline gap-2 mt-1">
                             <p className="text-xl font-bold text-emerald-600">{mlData.metrics.sharpe_ratio}</p>
                             {mlData.pro_forma?.sharpe_ratio && (
-                               <p className="text-xs font-bold text-green-500">→ {mlData.pro_forma.sharpe_ratio}</p>
+                              <p className="text-xs font-bold text-green-500">→ {mlData.pro_forma.sharpe_ratio}</p>
                             )}
                           </div>
                         </div>
@@ -1038,20 +1310,20 @@ export default function Home() {
                       <div className="grid md:grid-cols-2 gap-6">
                         <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
                           <h3 className="text-sm font-bold text-gray-800 mb-6 flex items-center gap-2">
-                             Current Distribution
+                            Current Distribution
                           </h3>
                           <DonutChart pct={analysis?.pct || {}} alloc={analysis?.alloc || {}} />
                         </div>
                         <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
                           <h3 className="text-sm font-bold text-gray-800 mb-6 flex items-center gap-2">
-                             Diversification Benchmark
+                            Diversification Benchmark
                           </h3>
                           <BenchmarkChart pct={analysis?.pct || {}} age={age} goal={goal} />
                         </div>
                       </div>
 
                       {mlData && (
-                        <div className="bg-gradient-to-br from-indigo-900 via-blue-900 to-indigo-950 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+                        <div id="ai-strategist-report" className="bg-gradient-to-br from-indigo-900 via-blue-900 to-indigo-950 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
                           <div className="relative z-10">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                               <div className="flex items-center gap-3">
@@ -1063,8 +1335,12 @@ export default function Home() {
                                   <p className="text-[10px] text-blue-300 font-bold uppercase tracking-widest">{age}yr · {goal}</p>
                                 </div>
                               </div>
+                              <button onClick={handleDownloadPDF} className="bg-white/10 hover:bg-white/20 text-white text-sm font-bold py-2 px-4 rounded-xl transition flex items-center gap-2 border border-white/20">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                Download PDF
+                              </button>
                             </div>
-                            
+
                             <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-8 backdrop-blur-sm transition-all hover:bg-white/10">
                               <p className="text-base text-blue-50 leading-relaxed font-medium italic opacity-95 whitespace-pre-line">
                                 {mlData.llm_recommendation}

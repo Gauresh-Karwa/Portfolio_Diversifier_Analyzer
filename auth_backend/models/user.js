@@ -14,6 +14,18 @@ const UserSchema = new Schema({
     password:{
         type:String,
         required:true
+    },
+    investments:{
+        type:String,
+        default:""
+    },
+    age:{
+        type:String,
+        default:""
+    },
+    goal:{
+        type:String,
+        default:""
     }
 })
 

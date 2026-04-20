@@ -31,10 +31,10 @@ export default function Navbar() {
         {/* Logo Section - Always Visible */}
         <Link to="/" className="flex items-center space-x-3 rtl:space-x-reverse">
           <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
-             <span className="text-white font-bold text-xl">A</span>
+             <span className="text-white font-bold text-xl">P</span>
           </div>
           <span className="self-center text-2xl font-bold whitespace-nowrap text-white tracking-wide">
-            Auric
+            Portfolio Diversification Analyzer
           </span>
         </Link>
 

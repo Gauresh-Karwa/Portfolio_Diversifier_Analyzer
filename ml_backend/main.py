@@ -57,27 +57,28 @@ def build_gemini_prompt(result: dict, new_cash: float, age: int, goal: str) -> s
 
     pro = result.get("pro_forma", {})
     prompt = f"""
-You are a warm Indian Stock Market Advisor. Start with "Namaste!". 
-Analyze this portfolio for a {age}-year-old investor aiming for "{goal}".
+You are an expert Indian Stock Market Advisor. Start with "Namaste!". 
+Provide a balanced and structured analysis for a {age}-year-old investor aiming for "{goal}".
 
 Rules for the response:
-1. DO NOT use markdown bolding (no double asterisks).
-2. USE THE BULLET CHARACTER "•" (not asterisks *) for each point.
-3. Use a BLANK LINE between each bulleted point.
-4. Discuss the projected improvement if the user follows the recommendations.
-5. Keep it under 200 words.
+1. DO NOT use markdown bolding (no double asterisks **).
+2. USE THE BULLET CHARACTER "•" for each point.
+3. Keep the layout clean with clear uppercase headings.
+4. Keep the length moderate: write 2 to 3 informative sentences per section. Do not make it too brief, but absolutely avoid walls of text.
 
-Content to cover:
-• Portfolio Health: Performance comment on current Return ({metrics['expected_annual_return_pct']}%) vs Risk ({metrics['annual_volatility_pct']}%).
+Please structure your response STRICTLY with these headings:
 
-• Suitability: Suitability check for a {age}-year-old with "{goal}" mindset.
+📊 PORTFOLIO DIAGNOSIS
+• Analyze the current Return ({metrics['expected_annual_return_pct']}%) vs Risk ({metrics['annual_volatility_pct']}%).
 
-• Action Plan for ₹{new_cash}:
-{rec_lines.replace("*", "•")}
+🎯 RISK & SUITABILITY
+• Evaluate if this profile aligns with a {age}-year-old pursuing "{goal}". Note any vulnerabilities.
 
-• Projected Outlook: Comment on how the Return ({pro.get('expected_annual_return_pct')}%) and Sharpe Ratio ({pro.get('sharpe_ratio')}) will improve post-investment.
+💡 ACTIONABLE OPTIMIZATION
+• Provide strong justification for why we are investing ₹{new_cash} across these recommended additions: {', '.join(recs.keys()) if recs else "No new trades"}.
 
-Use simple, encouraging Indian market perspective.
+🔮 FINANCIAL OUTLOOK
+• Discuss the implications of the projected Return jump to {pro.get('expected_annual_return_pct')}% and Sharpe Ratio of {pro.get('sharpe_ratio')}.
 """
     return prompt
 
