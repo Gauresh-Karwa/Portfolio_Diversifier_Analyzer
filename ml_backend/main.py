@@ -7,8 +7,9 @@ import io
 import os
 import google.generativeai as genai
 from dotenv import load_dotenv
-from analyzer import run_analysis
+from analyzer import run_analysis, run_backtest, run_sector_analysis, run_risk_analysis
 from generate_report import create_pdf
+from pydantic import BaseModel
 
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
@@ -261,3 +262,59 @@ async def generate_report(data: dict):
         media_type="application/pdf",
         headers={"Content-Disposition": "attachment; filename=portfolio_rebalancing_report.pdf"}
     )
+
+class BacktestRequest(BaseModel):
+    user_stocks: list[str]
+    quantities: list[float]
+    buy_prices: list[float]
+    target_weights: dict
+    period: str = "1y"
+
+@app.post("/backtest", dependencies=[Depends(verify_jwt)])
+async def backtest_portfolio(req: BacktestRequest):
+    result = run_backtest(
+        user_stocks=req.user_stocks,
+        quantities=req.quantities,
+        buy_prices=req.buy_prices,
+        target_weights=req.target_weights,
+        period=req.period
+    )
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+class SectorRequest(BaseModel):
+    user_stocks: list[str]
+    quantities: list[float]
+    buy_prices: list[float]
+
+@app.post("/sector-analysis", dependencies=[Depends(verify_jwt)])
+async def sector_analysis_endpoint(req: SectorRequest):
+    try:
+        result = run_sector_analysis(
+            user_stocks=req.user_stocks,
+            quantities=req.quantities,
+            buy_prices=req.buy_prices,
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class RiskRequest(BaseModel):
+    user_stocks: list[str]
+    quantities: list[float]
+    buy_prices: list[float]
+
+@app.post("/risk-analysis", dependencies=[Depends(verify_jwt)])
+async def risk_analysis_endpoint(req: RiskRequest):
+    try:
+        result = run_risk_analysis(
+            user_stocks=req.user_stocks,
+            quantities=req.quantities,
+            buy_prices=req.buy_prices,
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

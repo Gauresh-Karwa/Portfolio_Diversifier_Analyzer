@@ -6,6 +6,7 @@ from sklearn.cluster import KMeans
 from pypfopt import expected_returns, risk_models
 from pypfopt.efficient_frontier import EfficientFrontier
 import warnings
+import concurrent.futures
 warnings.filterwarnings("ignore")
 
 # ─── Diversifier Pool — 40 stocks across all major NSE sectors ───────────────
@@ -389,4 +390,262 @@ def run_analysis(user_stocks: list[str], quantities: list[float], buy_prices: li
         "candidates":            top_candidates,
         "optimization_note":     optimization_note.strip(),
         "invalid_tickers":       invalid_tickers
+    }
+
+def run_backtest(user_stocks, quantities, buy_prices, target_weights, period="1y"):
+    """
+    Computes historical cumulative returns for:
+    1. Current Portfolio (weighted by cost basis)
+    2. Optimized Portfolio (weighted by target weights)
+    3. Benchmark (Nifty 50)
+    """
+    bench_ticker = "^NSEI"
+    all_tickers = list(set(user_stocks) | set(target_weights.keys()))
+    
+    try:
+        raw = yf.download(all_tickers + [bench_ticker], period=period, auto_adjust=True, progress=False, threads=True)["Close"]
+    except Exception as e:
+        return {"error": f"Price download failed: {str(e)}"}
+        
+    if isinstance(raw, pd.Series):
+        raw = raw.to_frame(name=(all_tickers + [bench_ticker])[0])
+        
+    raw = raw.dropna(axis=1, how="all").ffill().dropna()
+    if raw.empty:
+        return {"error": "No price data returned for backtest."}
+        
+    bench_prices = raw[bench_ticker] if bench_ticker in raw.columns else None
+    stock_prices = raw.drop(columns=[bench_ticker], errors="ignore")
+    
+    daily_returns = stock_prices.pct_change().fillna(0)
+    
+    # Current portfolio returns
+    cost_basis = {sym: qty * bp for sym, qty, bp in zip(user_stocks, quantities, buy_prices)}
+    total_cost = sum(cost_basis.values())
+    valid_current = [s for s in user_stocks if s in daily_returns.columns and cost_basis.get(s, 0) > 0]
+    
+    if valid_current and total_cost > 0:
+        curr_w = np.array([cost_basis.get(s, 0) for s in valid_current])
+        curr_w = curr_w / curr_w.sum()
+        current_daily = daily_returns[valid_current].values @ curr_w
+    else:
+        current_daily = np.zeros(len(daily_returns))
+        
+    # Optimized portfolio returns
+    valid_opt = [t for t in target_weights if t in daily_returns.columns and target_weights.get(t, 0) > 0]
+    if valid_opt:
+        opt_w_raw = np.array([target_weights[t] for t in valid_opt], dtype=float)
+        total_opt = opt_w_raw.sum()
+        opt_w = opt_w_raw / total_opt if total_opt > 0 else opt_w_raw
+        optimized_daily = daily_returns[valid_opt].values @ opt_w
+    else:
+        optimized_daily = np.zeros(len(daily_returns))
+        
+    # Benchmark returns
+    if bench_prices is not None and not bench_prices.empty:
+        bench_daily = bench_prices.pct_change().fillna(0).reindex(daily_returns.index).fillna(0).values
+    else:
+        bench_daily = np.zeros(len(daily_returns))
+        
+    cum_current = (1 + current_daily).cumprod()
+    cum_optimized = (1 + optimized_daily).cumprod()
+    cum_bench = (1 + bench_daily).cumprod()
+    
+    dates = [d.strftime("%Y-%m-%d") for d in daily_returns.index]
+    
+    return {
+        "dates": dates,
+        "current": [round(float(v), 4) for v in cum_current],
+        "optimized": [round(float(v), 4) for v in cum_optimized],
+        "benchmark": [round(float(v), 4) for v in cum_bench]
+    }
+
+
+def run_sector_analysis(user_stocks: list, quantities: list, buy_prices: list):
+    """
+    Fetch sector & industry classification for each ticker via yfinance and
+    compute sector-level concentration metrics for the portfolio.
+    """
+    # Build portfolio value map
+    portfolio = {}
+    for sym, qty, bp in zip(user_stocks, quantities, buy_prices):
+        portfolio[sym] = portfolio.get(sym, 0) + (qty * bp)
+    total_value = sum(portfolio.values())
+
+    # Fetch info in parallel (8 workers to stay polite to Yahoo)
+    def fetch_info(ticker):
+        try:
+            info = yf.Ticker(ticker).info
+            return {
+                "ticker": ticker,
+                "sector":   info.get("sector")   or "Unknown",
+                "industry": info.get("industry") or "Unknown",
+                "name":     info.get("longName") or ticker.replace(".NS", ""),
+            }
+        except Exception:
+            return {"ticker": ticker, "sector": "Unknown", "industry": "Unknown",
+                    "name": ticker.replace(".NS", "")}
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+        infos = list(ex.map(fetch_info, user_stocks))
+
+    # Aggregate by sector and industry
+    sector_alloc:   dict = {}
+    industry_alloc: dict = {}
+    stock_details = []
+
+    for info in infos:
+        val = portfolio.get(info["ticker"], 0)
+        sec = info["sector"]
+        ind = info["industry"]
+        sector_alloc[sec]   = sector_alloc.get(sec, 0)   + val
+        industry_alloc[ind] = industry_alloc.get(ind, 0) + val
+        stock_details.append({
+            "symbol":     info["ticker"].replace(".NS", ""),
+            "ticker":     info["ticker"],
+            "sector":     sec,
+            "industry":   ind,
+            "name":       info["name"],
+            "value":      round(val, 2),
+            "weight_pct": round((val / total_value * 100) if total_value > 0 else 0, 2),
+        })
+
+    # Build sorted lists
+    sector_data = sorted(
+        [{"sector": s, "value": round(v, 2),
+          "weight_pct": round((v / total_value * 100) if total_value > 0 else 0, 2)}
+         for s, v in sector_alloc.items()],
+        key=lambda x: x["value"], reverse=True
+    )
+    industry_data = sorted(
+        [{"industry": i, "value": round(v, 2),
+          "weight_pct": round((v / total_value * 100) if total_value > 0 else 0, 2)}
+         for i, v in industry_alloc.items()],
+        key=lambda x: x["value"], reverse=True
+    )[:12]
+
+    # Risk scoring
+    n_sectors      = len([s for s in sector_data if s["weight_pct"] > 0.5])
+    top_pct        = sector_data[0]["weight_pct"] if sector_data else 0
+    herfindahl     = sum((s["weight_pct"] / 100) ** 2 for s in sector_data)  # HHI index
+
+    if top_pct > 50 or herfindahl > 0.35:
+        risk_level = "HIGH"
+        risk_score = max(10, int(100 - top_pct))
+    elif top_pct > 30 or herfindahl > 0.20:
+        risk_level = "MEDIUM"
+        risk_score = 55 + max(0, int((35 - top_pct)))
+    else:
+        risk_level = "LOW"
+        risk_score = min(100, 65 + n_sectors * 5)
+
+    warnings_list = []
+    for s in sector_data:
+        if s["weight_pct"] > 50:
+            warnings_list.append(
+                f"{s['sector']} dominates at {s['weight_pct']:.1f}% — extreme concentration risk.")
+        elif s["weight_pct"] > 35:
+            warnings_list.append(
+                f"{s['sector']} is overweight at {s['weight_pct']:.1f}% — consider diversifying.")
+    if n_sectors < 3:
+        warnings_list.append(
+            f"Portfolio only spans {n_sectors} sector(s). Target at least 4–6 for healthy diversification.")
+    unknown_pct = sector_alloc.get("Unknown", 0) / total_value * 100 if total_value else 0
+    if unknown_pct > 20:
+        warnings_list.append(
+            f"{unknown_pct:.1f}% of your portfolio has unclassified sector data — verify tickers on NSE.")
+
+    return {
+        "total_value":      round(total_value, 2),
+        "n_sectors":        n_sectors,
+        "herfindahl_index": round(herfindahl, 4),
+        "concentration_risk": risk_level,
+        "risk_score":       risk_score,
+        "top_sector":       sector_data[0]["sector"] if sector_data else "N/A",
+        "top_sector_pct":   round(top_pct, 2),
+        "sector_data":      sector_data,
+        "industry_data":    industry_data,
+        "stock_details":    sorted(stock_details, key=lambda x: x["value"], reverse=True),
+        "warnings":         warnings_list,
+    }
+
+
+def run_risk_analysis(user_stocks: list, quantities: list, buy_prices: list):
+    """
+    Computes Risk/Return Quadrant data and normalized stock movements for the portfolio.
+    """
+    if not user_stocks:
+        return {"error": "No stocks provided"}
+
+    # 1. Fetch 1 year of data for recent movements and risk/return analysis
+    data = yf.download(user_stocks, period="1y", interval="1d", auto_adjust=True)["Close"]
+    if data.empty:
+        return {"error": "No data found for risk analysis"}
+
+    # Handle single stock
+    if isinstance(data, pd.Series):
+        data = data.to_frame(name=user_stocks[0])
+
+    data = data.ffill().dropna()
+    if data.empty:
+        return {"error": "Insufficient valid data after cleaning"}
+
+    returns = data.pct_change().dropna()
+
+    # Recalculate weights based ONLY on valid downloaded stocks to prevent dot product shape mismatch
+    valid_stocks = list(data.columns)
+    valid_weights_map = {}
+    for i, stock in enumerate(user_stocks):
+        # YFinance may strip .NS or return it differently, but here user_stocks should match data.columns usually
+        # But wait, user_stocks has .NS, yfinance columns might keep .NS
+        # We will match by exact string
+        if stock in valid_stocks:
+            valid_weights_map[stock] = (quantities[i] * buy_prices[i])
+
+    total_valid_invested = sum(valid_weights_map.values())
+    if total_valid_invested == 0:
+        weights = [1/len(valid_stocks)] * len(valid_stocks)
+    else:
+        weights = [valid_weights_map[s] / total_valid_invested for s in valid_stocks]
+
+    # 2. Risk/Return Quadrant Data (Annualized)
+    # Annualized Return = (Cumulative Return + 1)^(252 / N) - 1, but for 1 year, simple cumulative works well, or mean return * 252
+    ann_returns = returns.mean() * 252 * 100
+    ann_volatility = returns.std() * np.sqrt(252) * 100
+
+    quadrant_data = []
+    for i, stock in enumerate(data.columns):
+        quadrant_data.append({
+            "ticker": stock.replace(".NS", ""),
+            "return": round(float(ann_returns[stock]), 2),
+            "risk": round(float(ann_volatility[stock]), 2),
+            "weight": round(weights[i] * 100, 2)
+        })
+
+    # Calculate Portfolio Average
+    port_returns = returns.dot(weights)
+    port_ann_return = port_returns.mean() * 252 * 100
+    port_ann_vol = port_returns.std() * np.sqrt(252) * 100
+
+    portfolio_avg = {
+        "return": round(float(port_ann_return), 2),
+        "risk": round(float(port_ann_vol), 2)
+    }
+
+    # 3. Stock Movements (Normalized to 100 at start)
+    normalized_data = (data / data.iloc[0]) * 100
+    
+    # Format for frontend chart
+    dates = [d.strftime('%Y-%m-%d') for d in normalized_data.index]
+    movements = {}
+    for stock in normalized_data.columns:
+        movements[stock.replace(".NS", "")] = [round(float(v), 2) for v in normalized_data[stock]]
+
+    return {
+        "quadrant_data": quadrant_data,
+        "portfolio_avg": portfolio_avg,
+        "movements": {
+            "dates": dates,
+            "series": movements
+        }
     }

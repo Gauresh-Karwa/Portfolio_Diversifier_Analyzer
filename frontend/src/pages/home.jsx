@@ -2,6 +2,8 @@ import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { handleSuccess } from "../utils";
 import { ToastContainer, toast } from "react-toastify";
+import SectorIntelligencePage from "./SectorIntelligence";
+import RiskLab from "./RiskLab";
 
 import { suggestTickers, isValidNseTicker, isVerifiedTicker } from "../data/nse_stocks";
 
@@ -30,6 +32,8 @@ const ICONS = {
   file: "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8",
   star: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
   menu: "M3 12h18 M3 6h18 M3 18h18",
+  pie: "M21.21 15.89A10 10 0 118 2.83 M22 12A10 10 0 0012 2v10z",
+  wave: "M2 6c.6 0 1.2.2 1.7.6.9.7 2.1.7 3 0 1.1-.8 2.4-.8 3.5 0 .9.7 2.1.7 3 0 1.1-.8 2.4-.8 3.5 0 .9.7 2.1.7 3 0 1.1-.8 2.4-.8 3.5 0 .5-.2 1-.6 1.4",
 };
 
 // ─── Equity-only categories (India NSE only) ──────────────────────────────────
@@ -54,11 +58,13 @@ const IDEAL_BANDS = {
 
 // ─── Sidebar nav ──────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
-  { key: "dashboard", label: "Dashboard", icon: "dashboard" },
-  { key: "upload", label: "Upload CSV", icon: "upload" },
-  { key: "manual", label: "Manual Entry", icon: "edit" },
-  { key: "analysis", label: "Analysis", icon: "chart" },
-  { key: "profile", label: "Investor Profile", icon: "user" },
+  { key: "dashboard", label: "Dashboard",         icon: "dashboard" },
+  { key: "upload",    label: "Upload CSV",         icon: "upload" },
+  { key: "manual",    label: "Manual Entry",       icon: "edit" },
+  { key: "analysis",  label: "Analysis",           icon: "chart" },
+  { key: "sectors",   label: "Sector Intelligence",icon: "pie" },
+  { key: "risklab",   label: "Risk & Return Analytics", icon: "wave" },
+  { key: "profile",   label: "Investor Profile",   icon: "user" },
 ];
 
 // ─── CSV parser ───────────────────────────────────────────────────────────────
@@ -350,6 +356,132 @@ function ScoreRing({ score }) {
   );
 }
 
+// ─── Backtest Chart ───────────────────────────────────────────────────────────
+function BacktestChart({ dates, current, optimized, benchmark }) {
+  const [hoverIdx, setHoverIdx] = React.useState(null);
+  const svgRef = React.useRef(null);
+  const W = 760, H = 300;
+  const PAD = { top: 24, right: 24, bottom: 48, left: 64 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
+  const N = dates.length;
+  if (!N) return null;
+
+  const allVals = [...current, ...optimized, ...benchmark];
+  const minV = Math.min(...allVals) * 0.985;
+  const maxV = Math.max(...allVals) * 1.015;
+  const vRange = maxV - minV || 1;
+
+  const step = Math.max(1, Math.floor(N / 200));
+  const idxArr = Array.from({ length: Math.ceil(N / step) }, (_, i) => Math.min(i * step, N - 1));
+
+  const xS = i => (i / (N - 1)) * cW;
+  const yS = v => cH - ((v - minV) / vRange) * cH;
+  const toPath = arr => idxArr.map((i, k) => `${k === 0 ? 'M' : 'L'} ${xS(i).toFixed(1)} ${yS(arr[i]).toFixed(1)}`).join(' ');
+
+  const yTickVals = Array.from({ length: 5 }, (_, i) => minV + (i / 4) * vRange);
+  const xLabelIdxs = Array.from({ length: 6 }, (_, i) => Math.round(i * (N - 1) / 5));
+  const series = [
+    { key: 'current',   data: current,   color: '#F59E0B', label: 'Current Portfolio' },
+    { key: 'optimized', data: optimized, color: '#6366F1', label: 'Optimised Portfolio' },
+    { key: 'benchmark', data: benchmark, color: '#94A3B8', label: 'Nifty 50' },
+  ];
+
+  const pct = v => `${v >= 1 ? '+' : ''}${((v - 1) * 100).toFixed(2)}%`;
+  const lastC = current[N - 1], lastO = optimized[N - 1], lastB = benchmark[N - 1];
+  const edge = ((lastO / lastC) - 1) * 100;
+
+  const handleMouseMove = (e) => {
+    if (!svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const relX = (e.clientX - rect.left) * (W / rect.width) - PAD.left;
+    setHoverIdx(Math.max(0, Math.min(N - 1, Math.round((relX / cW) * (N - 1)))));
+  };
+
+  return (
+    <div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        {[
+          { label: 'Current Portfolio',   val: pct(lastC), color: '#D97706', bg: '#FFFBEB' },
+          { label: 'Optimised Portfolio', val: pct(lastO), color: '#4F46E5', bg: '#EEF2FF' },
+          { label: 'Nifty 50',            val: pct(lastB), color: '#64748B', bg: '#F8FAFC' },
+          { label: 'AI Edge', val: `${edge >= 0 ? '+' : ''}${edge.toFixed(2)}%`, color: edge >= 0 ? '#059669' : '#DC2626', bg: edge >= 0 ? '#F0FDF4' : '#FEF2F2' },
+        ].map(s => (
+          <div key={s.label} className="rounded-xl p-4 text-center" style={{ background: s.bg }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">{s.label}</p>
+            <p className="text-xl font-bold" style={{ color: s.color }}>{s.val}</p>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-6 mb-3">
+        {series.map(s => (
+          <div key={s.key} className="flex items-center gap-2">
+            <div className="w-6 h-2 rounded-full" style={{ background: s.color }} />
+            <span className="text-xs font-medium text-gray-500">{s.label}</span>
+          </div>
+        ))}
+      </div>
+      <div className="relative">
+        <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: '300px', cursor: 'crosshair' }}
+          onMouseMove={handleMouseMove} onMouseLeave={() => setHoverIdx(null)}>
+          <defs>
+            {series.map(s => (
+              <linearGradient key={s.key} id={`bt-${s.key}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={s.color} stopOpacity="0.12" />
+                <stop offset="100%" stopColor={s.color} stopOpacity="0.01" />
+              </linearGradient>
+            ))}
+          </defs>
+          <g transform={`translate(${PAD.left},${PAD.top})`}>
+            {yTickVals.map((v, i) => (
+              <g key={i}>
+                <line x1={0} y1={yS(v)} x2={cW} y2={yS(v)} stroke="#F1F5F9" strokeWidth={1} />
+                <text x={-10} y={yS(v) + 4} textAnchor="end" fontSize="10" fill="#94A3B8">
+                  {((v - 1) * 100).toFixed(0)}%
+                </text>
+              </g>
+            ))}
+            {minV <= 1 && maxV >= 1 && (
+              <line x1={0} y1={yS(1)} x2={cW} y2={yS(1)} stroke="#CBD5E1" strokeWidth={1} strokeDasharray="4,4" />
+            )}
+            {series.map(s => (
+              <path key={`a-${s.key}`} d={`${toPath(s.data)} L ${xS(N-1)} ${cH} L ${xS(0)} ${cH} Z`} fill={`url(#bt-${s.key})`} />
+            ))}
+            {series.map(s => (
+              <path key={`l-${s.key}`} d={toPath(s.data)} fill="none" stroke={s.color} strokeWidth={2.5} strokeLinejoin="round" />
+            ))}
+            {xLabelIdxs.map(i => (
+              <text key={i} x={xS(i)} y={cH + 18} textAnchor="middle" fontSize="10" fill="#94A3B8">{dates[i]?.slice(0, 7)}</text>
+            ))}
+            {hoverIdx !== null && (
+              <>
+                <line x1={xS(hoverIdx)} y1={0} x2={xS(hoverIdx)} y2={cH} stroke="#CBD5E1" strokeWidth={1} strokeDasharray="3,3" />
+                {series.map(s => (
+                  <circle key={s.key} cx={xS(hoverIdx)} cy={yS(s.data[hoverIdx])} r={4} fill={s.color} stroke="white" strokeWidth={2} />
+                ))}
+              </>
+            )}
+          </g>
+        </svg>
+        {hoverIdx !== null && (
+          <div className="absolute top-2 right-2 bg-white border border-gray-100 rounded-xl shadow-lg p-3 text-xs space-y-1.5 min-w-[180px]">
+            <p className="font-bold text-gray-500 mb-1">{dates[hoverIdx]}</p>
+            {series.map(s => (
+              <div key={s.key} className="flex items-center justify-between gap-4">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full inline-block" style={{ background: s.color }} />
+                  <span className="text-gray-500">{s.label}</span>
+                </span>
+                <span className="font-bold" style={{ color: s.color }}>{pct(s.data[hoverIdx])}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -381,6 +513,11 @@ export default function Home() {
   const [rawFile, setRawFile] = useState(null);
   const [investmentCash, setInvestmentCash] = useState("");
 
+  // ── Backtest state ──
+  const [btData, setBtData] = useState(null);
+  const [btLoading, setBtLoading] = useState(false);
+  const [btError, setBtError] = useState("");
+  const [btPeriod, setBtPeriod] = useState("1y");
 
   // ── Ticker autocomplete state ──
   const [tickerSuggestions, setTickerSuggestions] = useState([]);
@@ -553,6 +690,7 @@ export default function Home() {
 
     const recs = getRecommendations(parseInt(age), goal);
     setRecommendations(recs);
+    setBtData(null); // reset backtest when re-analysing
     toast.success("Analysis complete!");
 
   };
@@ -639,6 +777,53 @@ export default function Home() {
     } catch (e) {
       console.error("PDF Generation Error:", e);
       toast.error("Failed to generate PDF. Check console for details.");
+    }
+  };
+
+  // ── Run Backtest ──────────────────────────────────────────────────────────
+  const runBacktest = async (period) => {
+    const p = period || btPeriod;
+    if (!mlData) { toast.error("Run the main analysis first."); return; }
+    setBtLoading(true);
+    setBtError("");
+    setBtData(null);
+
+    const user_stocks = investments.map(inv => {
+      const n = inv.name.trim().toUpperCase();
+      return n.endsWith(".NS") ? n : n + ".NS";
+    });
+    const quantities = investments.map(() => 1.0);
+    const buy_prices = investments.map(inv => inv.amount);
+
+    const target_weights = {};
+    (mlData.rebalance_actions || []).forEach(a => {
+      if ((a.target_weight_pct || 0) > 0) {
+        const t = a.ticker || (a.symbol.endsWith(".NS") ? a.symbol : a.symbol + ".NS");
+        target_weights[t] = a.target_weight_pct / 100;
+      }
+    });
+
+    try {
+      const res = await fetch("http://localhost:8000/backtest", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ user_stocks, quantities, buy_prices, target_weights, period: p }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setBtError(data.detail || "Backtest failed.");
+        toast.error("Backtest failed.");
+      } else {
+        setBtData(data);
+      }
+    } catch {
+      setBtError("Could not connect to ML server.");
+      toast.error("Backtest connection error.");
+    } finally {
+      setBtLoading(false);
     }
   };
 
@@ -1318,6 +1503,128 @@ export default function Home() {
                               </div>
                             </div>
                           )}
+                          {/* ── Backtesting "What If" Panel ── */}
+                          <div id="backtest-panel" className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+                            {/* Header */}
+                            <div className="px-6 py-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                              style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%)" }}>
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
+                                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                                  </svg>
+                                </div>
+                                <div>
+                                  <h3 className="text-base font-bold text-white">Portfolio Backtesting</h3>
+                                  <p className="text-[10px] text-blue-300 font-semibold uppercase tracking-widest mt-0.5">
+                                    "What If" Historical Performance Analysis
+                                  </p>
+                                </div>
+                              </div>
+                              {/* Period selector + run button */}
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {["6mo", "1y", "2y"].map(p => (
+                                  <button key={p} onClick={() => { setBtPeriod(p); setBtData(null); }}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all border"
+                                    style={{
+                                      background: btPeriod === p ? "rgba(99,102,241,0.9)" : "rgba(255,255,255,0.08)",
+                                      color: btPeriod === p ? "#fff" : "#93C5FD",
+                                      borderColor: btPeriod === p ? "rgba(99,102,241,0.6)" : "rgba(255,255,255,0.15)"
+                                    }}>
+                                    {p === "6mo" ? "6 Months" : p === "1y" ? "1 Year" : "2 Years"}
+                                  </button>
+                                ))}
+                                <button
+                                  onClick={() => runBacktest(btPeriod)}
+                                  disabled={btLoading}
+                                  className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all border disabled:opacity-50"
+                                  style={{ background: "rgba(99,102,241,0.9)", color: "#fff", borderColor: "rgba(99,102,241,0.5)" }}>
+                                  {btLoading ? (
+                                    <><div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> Running...</>
+                                  ) : (
+                                    <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="5 3 19 12 5 21 5 3" /></svg> Run Backtest</>
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Body */}
+                            <div className="p-6">
+                              {!btData && !btLoading && !btError && (
+                                <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
+                                  <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center">
+                                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                                      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                                    </svg>
+                                  </div>
+                                  <p className="text-sm font-bold text-gray-700">See how the AI-optimized portfolio would have performed</p>
+                                  <p className="text-xs text-gray-400 max-w-xs">
+                                    Choose a lookback period and click <span className="font-semibold text-indigo-600">Run Backtest</span> to compare your current allocation vs the AI-recommended portfolio vs the Nifty 50 index.
+                                  </p>
+                                </div>
+                              )}
+
+                              {btLoading && (
+                                <div className="flex flex-col items-center justify-center py-14 gap-4">
+                                  <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+                                  <p className="text-sm font-semibold text-gray-600">Fetching historical prices & computing cumulative returns…</p>
+                                  <p className="text-xs text-gray-400">This may take 10–20 seconds (downloading NSE data via yfinance)</p>
+                                </div>
+                              )}
+
+                              {btError && !btLoading && (
+                                <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl p-4">
+                                  <Icon d={ICONS.info} size={18} color="#DC2626" strokeWidth={2} />
+                                  <div>
+                                    <p className="text-sm font-bold text-red-700">Backtest Failed</p>
+                                    <p className="text-xs text-red-600 mt-1">{btError}</p>
+                                  </div>
+                                </div>
+                              )}
+
+                              {btData && !btLoading && (
+                                <>
+                                  {/* Insight banner */}
+                                  {(() => {
+                                    const lastC = btData.current[btData.current.length - 1];
+                                    const lastO = btData.optimized[btData.optimized.length - 1];
+                                    const lastB = btData.benchmark[btData.benchmark.length - 1];
+                                    const edge = ((lastO / lastC) - 1) * 100;
+                                    const beatsBench = lastO > lastB;
+                                    return (
+                                      <div className="rounded-xl p-4 mb-6 flex items-start gap-3"
+                                        style={{ background: edge >= 0 ? "#f0fdf4" : "#fef2f2", border: `1px solid ${edge >= 0 ? "#bbf7d0" : "#fecaca"}` }}>
+                                        <div className="text-2xl"></div>
+                                        <div>
+                                          <p className="text-sm font-bold" style={{ color: edge >= 0 ? "#166534" : "#991b1b" }}>
+                                            {edge >= 0
+                                              ? `AI Optimised portfolio outperformed your current allocation by ${edge.toFixed(2)}% over this period`
+                                              : `Current portfolio performed ${Math.abs(edge).toFixed(2)}% better than the optimised mix over this period`}
+                                          </p>
+                                          <p className="text-xs mt-1" style={{ color: edge >= 0 ? "#166534" : "#991b1b" }}>
+                                            {beatsBench
+                                              ? "✓ The optimised portfolio also beat the Nifty 50 benchmark."
+                                              : "The optimised portfolio underperformed the Nifty 50 — consider market timing."}
+                                            {" "}Past performance does not guarantee future results.
+                                          </p>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+                                  <BacktestChart
+                                    dates={btData.dates}
+                                    current={btData.current}
+                                    optimized={btData.optimized}
+                                    benchmark={btData.benchmark}
+                                  />
+                                  <p className="text-[10px] text-gray-400 mt-4 text-center">
+                                    Chart shows normalised cumulative returns (base = 1.00 at period start). Nifty 50 (^NSEI) used as benchmark. Data sourced from Yahoo Finance.
+                                  </p>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
                         </>
                       )}
                     </>
@@ -1325,6 +1632,16 @@ export default function Home() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* ════ SECTOR INTELLIGENCE ════ */}
+          {activeNav === "sectors" && (
+            <SectorIntelligencePage investments={investments} />
+          )}
+
+          {/* ════ WEALTH LAB ════ */}
+          {activeNav === "risklab" && (
+            <RiskLab investments={investments} />
           )}
 
           {/* ── DISCLAIMER ── */}
