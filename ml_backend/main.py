@@ -31,6 +31,8 @@ def verify_jwt(authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
+
+
 app = FastAPI()
 
 app.add_middleware(
@@ -44,42 +46,66 @@ def build_gemini_prompt(result: dict, new_cash: float, age: int, goal: str) -> s
     metrics = result["metrics"]
     recs = result["recommendations"]
     cluster_info = result["cluster_info"]
+    pro = result.get("pro_forma", {})
+
+    system_context = """You are a friendly SEBI-registered financial
+advisor for Indian retail investors. You must give specific,
+personalized advice based ONLY on the numbers provided. Never give
+generic advice. Always mention specific stock names. Always mention
+specific rupee amounts. Keep it under 180 words. Use simple English.
+Do not use jargon. Do not repeat the same sentence structure for
+every paragraph."""
+
+    user_clusters = set(v["cluster"] for v in cluster_info.values())
+    is_concentrated = "yes" if len(user_clusters) <= 1 and len(cluster_info) > 0 else "no"
 
     stock_lines = "\n".join(
-        f"- {sym}: annual return {v['annual_return_pct']}%, volatility {v['annual_volatility_pct']}%"
+        f"- {sym}: annual return {v['annual_return_pct']}%, volatility {v['annual_volatility_pct']}%, cluster ID {v['cluster']}"
         for sym, v in cluster_info.items()
-    )
+    ) if cluster_info else "No existing stocks or missing data."
 
     rec_lines = "\n".join(
-        f"- Buy {sym}: ₹{amt}"
+        f"- {sym}: ₹{amt} (helps by adding missing cluster characteristics like counter-cyclical or balanced growth missing in user portfolio)"
         for sym, amt in recs.items()
-    ) if recs else "No new investment specified."
+    ) if recs else "No recommended investments."
 
-    pro = result.get("pro_forma", {})
-    prompt = f"""
-You are an expert Indian Stock Market Advisor. Start with "Namaste!". 
-Provide a balanced and structured analysis for a {age}-year-old investor aiming for "{goal}".
+    old_sharpe = metrics.get('sharpe_ratio', 'N/A')
+    new_sharpe = pro.get('sharpe_ratio', 'N/A')
+    new_return = pro.get('expected_annual_return_pct', 'N/A')
+    new_volatility = pro.get('annual_volatility_pct', 'N/A')
 
-Rules for the response:
-1. DO NOT use markdown bolding (no double asterisks **).
-2. USE THE BULLET CHARACTER "•" for each point.
-3. Keep the layout clean with clear uppercase headings.
-4. Keep the length moderate: write 2 to 3 informative sentences per section. Do not make it too brief, but absolutely avoid walls of text.
+    data_block = f"""--- DATA BLOCK ---
+User Stocks:
+{stock_lines}
 
-Please structure your response STRICTLY with these headings:
+Concentrated (all in same cluster) = {is_concentrated}
 
-📊 PORTFOLIO DIAGNOSIS
-• Analyze the current Return ({metrics['expected_annual_return_pct']}%) vs Risk ({metrics['annual_volatility_pct']}%).
+Specific missing cluster behavior description:
+* Cluster with lowest volatility = "defensive/stable stocks"
+* Cluster with negative correlation to user stocks = "counter-cyclical"
+* Cluster with medium return medium risk = "balanced growth"
 
-🎯 RISK & SUITABILITY
-• Evaluate if this profile aligns with a {age}-year-old pursuing "{goal}". Note any vulnerabilities.
+Recommended Stocks:
+{rec_lines}
 
-💡 ACTIONABLE OPTIMIZATION
-• Provide strong justification for why we are investing ₹{new_cash} across these recommended additions: {', '.join(recs.keys()) if recs else "No new trades"}.
+Expected Sharpe Ratio:
+- Old Sharpe: {old_sharpe}
+- New Sharpe: {new_sharpe}
+- New Expected Return: {new_return}%
+- New Volatility: {new_volatility}%
 
-🔮 FINANCIAL OUTLOOK
-• Discuss the implications of the projected Return jump to {pro.get('expected_annual_return_pct')}% and Sharpe Ratio of {pro.get('sharpe_ratio')}.
-"""
+Investment Types Summary:
+- Age: {age} 
+- Goal: {goal} 
+- New Cash to Invest: ₹{new_cash}
+------------------"""
+
+    prompt_instruction = """Write 3 short paragraphs:
+Paragraph 1: Tell the user specifically what is wrong with their current portfolio using their actual stock names and numbers.
+Paragraph 2: Explain specifically what each recommended stock adds and why — mention the stock name and rupee amount.
+Paragraph 3: Tell them what their portfolio will look like after investing — mention the new expected return and new volatility if calculable, or the improvement in Sharpe Ratio."""
+
+    prompt = f"{system_context}\n\n{data_block}\n\n{prompt_instruction}"
     return prompt
 
 
