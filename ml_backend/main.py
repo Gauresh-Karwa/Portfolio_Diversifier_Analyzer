@@ -1,4 +1,5 @@
 from fastapi import FastAPI, File, UploadFile, Form, Depends, HTTPException, Header
+from fastapi.responses import StreamingResponse
 from jose import jwt, JWTError
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
@@ -7,6 +8,7 @@ import os
 import google.generativeai as genai
 from dotenv import load_dotenv
 from analyzer import run_analysis
+from generate_report import create_pdf
 
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
@@ -44,15 +46,15 @@ app.add_middleware(
 
 def build_gemini_prompt(result: dict, new_cash: float, age: int, goal: str) -> str:
     metrics = result["metrics"]
-    recs = result["recommendations"]
     cluster_info = result["cluster_info"]
     pro = result.get("pro_forma", {})
+    rebalance_actions = result.get("rebalance_actions", [])
 
     system_context = """You are a friendly SEBI-registered financial
 advisor for Indian retail investors. You must give specific,
 personalized advice based ONLY on the numbers provided. Never give
 generic advice. Always mention specific stock names. Always mention
-specific rupee amounts. Keep it under 180 words. Use simple English.
+specific rupee amounts. Keep it under 200 words. Use simple English.
 Do not use jargon. Do not repeat the same sentence structure for
 every paragraph."""
 
@@ -64,15 +66,25 @@ every paragraph."""
         for sym, v in cluster_info.items()
     ) if cluster_info else "No existing stocks or missing data."
 
-    rec_lines = "\n".join(
-        f"- {sym}: ₹{amt} (helps by adding missing cluster characteristics like counter-cyclical or balanced growth missing in user portfolio)"
-        for sym, amt in recs.items()
-    ) if recs else "No recommended investments."
+    sell_actions = [a for a in rebalance_actions if a["action"] == "SELL"]
+    buy_actions  = [a for a in rebalance_actions if a["action"] == "BUY"]
 
-    old_sharpe = metrics.get('sharpe_ratio', 'N/A')
-    new_sharpe = pro.get('sharpe_ratio', 'N/A')
-    new_return = pro.get('expected_annual_return_pct', 'N/A')
-    new_volatility = pro.get('annual_volatility_pct', 'N/A')
+    sell_lines = "\n".join(
+        f"- SELL {a['symbol']}: reduce by Rs.{a['delta_rupees']:,.0f} (over-represented or same cluster as other holdings)"
+        for a in sell_actions
+    ) if sell_actions else "No sell actions required."
+
+    buy_lines = "\n".join(
+        f"- BUY {a['symbol']}: invest Rs.{a['delta_rupees']:,.0f} (adds missing cluster diversification)"
+        for a in buy_actions
+    ) if buy_actions else "No buy actions required."
+
+    old_sharpe  = metrics.get('sharpe_ratio', 'N/A')
+    new_sharpe  = pro.get('sharpe_ratio', 'N/A')
+    new_return  = pro.get('expected_annual_return_pct', 'N/A')
+    new_vol     = pro.get('annual_volatility_pct', 'N/A')
+    sell_total  = result.get('total_sell_proceeds', 0)
+    net_needed  = result.get('net_cash_needed', 0)
 
     data_block = f"""--- DATA BLOCK ---
 User Stocks:
@@ -80,33 +92,36 @@ User Stocks:
 
 Concentrated (all in same cluster) = {is_concentrated}
 
-Specific missing cluster behavior description:
-* Cluster with lowest volatility = "defensive/stable stocks"
-* Cluster with negative correlation to user stocks = "counter-cyclical"
-* Cluster with medium return medium risk = "balanced growth"
+REBALANCING PLAN:
+Sell Orders:
+{sell_lines}
 
-Recommended Stocks:
-{rec_lines}
+Buy Orders:
+{buy_lines}
 
-Expected Sharpe Ratio:
-- Old Sharpe: {old_sharpe}
-- New Sharpe: {new_sharpe}
-- New Expected Return: {new_return}%
-- New Volatility: {new_volatility}%
+Cash Flow Summary:
+- New Cash Added: Rs.{new_cash:,.0f}
+- Sell Proceeds: Rs.{sell_total:,.0f}
+- Net Cash Still Needed: Rs.{max(0, net_needed):,.0f} (0 means self-funded)
 
-Investment Types Summary:
-- Age: {age} 
-- Goal: {goal} 
-- New Cash to Invest: ₹{new_cash}
+Performance Impact:
+- Current Sharpe: {old_sharpe}
+- Projected Sharpe: {new_sharpe}
+- Projected Return: {new_return}%
+- Projected Volatility: {new_vol}%
+
+Investor Profile:
+- Age: {age}
+- Goal: {goal}
+- New Cash to Invest: Rs.{new_cash:,.0f}
 ------------------"""
 
     prompt_instruction = """Write 3 short paragraphs:
-Paragraph 1: Tell the user specifically what is wrong with their current portfolio using their actual stock names and numbers.
-Paragraph 2: Explain specifically what each recommended stock adds and why — mention the stock name and rupee amount.
-Paragraph 3: Tell them what their portfolio will look like after investing — mention the new expected return and new volatility if calculable, or the improvement in Sharpe Ratio."""
+Paragraph 1: Tell the user specifically what is wrong with their current portfolio using their actual stock names and numbers — which stocks are over-concentrated and which behavioral clusters are missing.
+Paragraph 2: Explain the rebalancing plan — which stocks to sell and why (they are over-represented or in the same cluster), and which stocks to buy and why (they fill missing behavioral clusters). Mention specific stock names and rupee amounts.
+Paragraph 3: Tell them what their portfolio will look like after rebalancing — mention the projected return, volatility, and improvement in Sharpe Ratio."""
 
-    prompt = f"{system_context}\n\n{data_block}\n\n{prompt_instruction}"
-    return prompt
+    return f"{system_context}\n\n{data_block}\n\n{prompt_instruction}"
 
 
 @app.post("/analyze", dependencies=[Depends(verify_jwt)])
@@ -237,3 +252,12 @@ async def analyze(
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+@app.post("/generate-report", dependencies=[Depends(verify_jwt)])
+async def generate_report(data: dict):
+    pdf_bytes = create_pdf(data)
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=portfolio_rebalancing_report.pdf"}
+    )

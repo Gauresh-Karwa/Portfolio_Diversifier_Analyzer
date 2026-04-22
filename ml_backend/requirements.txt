@@ -9,3 +9,5 @@ python-dotenv
 google-generativeai
 python-multipart
 python-jose[cryptography]
+matplotlib
+reportlab
