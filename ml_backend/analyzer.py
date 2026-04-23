@@ -9,30 +9,60 @@ import warnings
 import concurrent.futures
 warnings.filterwarnings("ignore")
 
-# ─── Diversifier Pool — 40 stocks across all major NSE sectors ───────────────
+# ─── Diversifier Pool — ~180 major NSE stocks across all sectors ─────────────
 DIVERSIFIER_POOL = [
-    # FMCG
-    "HINDUNILVR.NS", "NESTLEIND.NS", "DABUR.NS", "MARICO.NS", "BRITANNIA.NS",
-    # Pharma
-    "SUNPHARMA.NS", "DRREDDY.NS", "CIPLA.NS", "DIVISLAB.NS",
-    # Banking & Finance
-    "HDFCBANK.NS", "ICICIBANK.NS", "KOTAKBANK.NS", "AXISBANK.NS",
-    "BAJFINANCE.NS", "SBICARD.NS",
-    # Energy & PSU
-    "ONGC.NS", "NTPC.NS", "POWERGRID.NS", "COALINDIA.NS", "BPCL.NS",
-    # Metals & Mining
-    "TATASTEEL.NS", "JSWSTEEL.NS", "HINDALCO.NS", "VEDL.NS",
-    # Auto
-    "MARUTI.NS", "TATAMOTORS.NS", "BAJAJ-AUTO.NS", "EICHERMOT.NS",
-    # Consumer & Retail
-    "ASIANPAINT.NS", "TITAN.NS", "PIDILITIND.NS",
-    # Telecom & Media
-    "BHARTIARTL.NS", "ZEEL.NS",
-    # Infrastructure & Real Estate
-    "ULTRACEMCO.NS", "GRASIM.NS", "DLF.NS",
-    # Healthcare
-    "APOLLOHOSP.NS", "MAXHEALTH.NS",
+    "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "ICICIBANK.NS", "HINDUNILVR.NS", "ITC.NS",
+    "SBIN.NS", "BAJFINANCE.NS", "BHARTIARTL.NS", "KOTAKBANK.NS", "LT.NS", "AXISBANK.NS",
+    "ASIANPAINT.NS", "MARUTI.NS", "TITAN.NS", "SUNPHARMA.NS", "WIPRO.NS", "HCLTECH.NS",
+    "ULTRACEMCO.NS", "NESTLEIND.NS", "TATAMOTORS.NS", "NTPC.NS", "POWERGRID.NS", "ONGC.NS",
+    "JSWSTEEL.NS", "TATASTEEL.NS", "M&M.NS", "TECHM.NS", "COALINDIA.NS", "BPCL.NS",
+    "GRASIM.NS", "DRREDDY.NS", "ADANIENT.NS", "ADANIPORTS.NS", "CIPLA.NS", "EICHERMOT.NS",
+    "BRITANNIA.NS", "BAJAJ-AUTO.NS", "DIVISLAB.NS", "HINDALCO.NS", "INDUSINDBK.NS",
+    "APOLLOHOSP.NS", "TATACONSUM.NS", "SBILIFE.NS", "HDFCLIFE.NS", "BAJAJFINSV.NS",
+    "HEROMOTOCO.NS", "VEDL.NS", "PIDILITIND.NS", "SIEMENS.NS", "HAVELLS.NS", "BERGEPAINT.NS",
+    "DABUR.NS", "COLPAL.NS", "MARICO.NS", "GODREJCP.NS", "MUTHOOTFIN.NS", "PAGEIND.NS",
+    "TORNTPHARM.NS", "LUPIN.NS", "BIOCON.NS", "AUROPHARMA.NS", "ALKEM.NS", "IPCALAB.NS",
+    "GLENMARK.NS", "ABBOTINDIA.NS", "PFIZER.NS", "SANOFI.NS", "GLAXO.NS", "HDFCAMC.NS",
+    "NIPPONLIFE.NS", "ICICIGI.NS", "ICICIPRULI.NS", "SBICARD.NS", "AUBANKIND.NS",
+    "FEDERALBNK.NS", "BANDHANBNK.NS", "IDFCFIRSTB.NS", "PNB.NS", "CANBK.NS", "UNIONBANK.NS",
+    "BANKBARODA.NS", "MAHABANK.NS", "ADANIGREEN.NS", "ADANIPOWER.NS", "TATAPOWER.NS",
+    "TORNTPOWER.NS", "CESC.NS", "DLF.NS", "GODREJPROP.NS", "PRESTIGE.NS", "OBEROIREAL.NS",
+    "PHOENIXLTD.NS", "CHOLAFIN.NS", "BAJAJHLDNG.NS", "RECLTD.NS", "PFC.NS", "RVNL.NS",
+    "IRCTC.NS", "IRFC.NS", "CONCOR.NS", "ZOMATO.NS", "NYKAA.NS", "POLICYBZR.NS", "PAYTM.NS",
+    "DELHIVERY.NS", "MAXHEALTH.NS", "FORTIS.NS", "NARAYANA.NS", "RAINBOW.NS", "MFSL.NS",
+    "STARHEALTH.NS", "TRENT.NS", "DMART.NS", "ABFRL.NS", "RAYMOND.NS", "JUBLFOOD.NS",
+    "DEVYANI.NS", "SAPPHIRE.NS", "WESTLIFE.NS", "TATACHEM.NS", "AARTIIND.NS", "DEEPAKNTR.NS",
+    "GNFC.NS", "CUMMINSIND.NS", "THERMAX.NS", "BEL.NS", "HAL.NS", "BHEL.NS", "BEML.NS",
+    "CGPOWER.NS", "ABB.NS", "VOLTAS.NS", "WHIRLPOOL.NS", "BLUESTARCO.NS", "MPHASIS.NS",
+    "PERSISTENT.NS", "LTIM.NS", "COFORGE.NS", "OFSS.NS", "ZEEL.NS", "SUNTV.NS", "PVRINOX.NS",
+    "LALPATHLAB.NS", "METROPOLIS.NS", "THYROCARE.NS", "ASTRAL.NS", "SUPREMEIND.NS",
+    "POLYPLEX.NS", "GHCL.NS", "KALYANKJIL.NS", "SENCO.NS", "RAJESHEXPO.NS", "SAIL.NS",
+    "NMDC.NS", "MOIL.NS", "NATIONALUM.NS", "KIMS.NS", "YATHARTH.NS", "MEDANTA.NS",
+    "HOMEFIRST.NS", "AAVAS.NS", "CREDITACC.NS", "MANAPPURAM.NS", "IREDA.NS", "NHPC.NS",
+    "SJVN.NS", "HUDCO.NS", "RAILTEL.NS", "MAZDOCK.NS", "GRSE.NS", "BIKAJI.NS", "CAMPUS.NS",
+    "LATENTVIEW.NS", "RATEGAIN.NS", "INTELLECT.NS", "MEDPLUS.NS", "VIJAYA.NS", "JKCEMENT.NS",
+    "DALBHARAT.NS", "RAMCOCEM.NS", "PRISMCANN.NS", "MOTILALOFS.NS", "SWSOLAR.NS",
+    "SHYAMMETL.NS", "VGUARD.NS", "AEGISLOG.NS", "RITES.NS", "HFCL.NS", "IRCON.NS",
+    "IDBI.NS", "UCOBANK.NS", "IOB.NS", "CENTRALBK.NS", "HINDZINC.NS", "TATAELXSI.NS",
+    "KPITTECH.NS", "JSL.NS", "JINDALSTEL.NS", "IDEA.NS", "YESBANK.NS", "SUZLON.NS",
+    "JPPOWER.NS", "SOUTHBANK.NS", "KARURVYSYA.NS", "IEX.NS", "MCX.NS", "CDSL.NS",
+    "TRIDENT.NS", "ALOKINDS.NS", "RENUKA.NS",
 ]
+
+
+# ─── Sector Mapping for Intelligence ──────────────────────────────────────────
+SECTOR_MAPPING = {
+    "FMCG": ["HINDUNILVR.NS", "NESTLEIND.NS", "DABUR.NS", "MARICO.NS", "BRITANNIA.NS", "COLPAL.NS", "GODREJCP.NS", "TATACONSUM.NS", "VBL.NS"],
+    "IT": ["TCS.NS", "INFY.NS", "HCLTECH.NS", "WIPRO.NS", "TECHM.NS", "LTIM.NS", "PERSISTENT.NS", "COFORGE.NS", "MPHASIS.NS"],
+    "Banking": ["HDFCBANK.NS", "ICICIBANK.NS", "SBIN.NS", "KOTAKBANK.NS", "AXISBANK.NS", "INDUSINDBK.NS", "BANKBARODA.NS", "PNB.NS", "FEDERALBNK.NS"],
+    "Finance": ["BAJFINANCE.NS", "BAJAJFINSV.NS", "CHOLAFIN.NS", "SBICARD.NS", "MUTHOOTFIN.NS", "HDFCLIFE.NS", "SBILIFE.NS", "RECLTD.NS", "PFC.NS"],
+    "Energy": ["RELIANCE.NS", "ONGC.NS", "NTPC.NS", "POWERGRID.NS", "BPCL.NS", "COALINDIA.NS", "TATAPOWER.NS", "ADANIGREEN.NS", "ADANIPOWER.NS"],
+    "Auto": ["MARUTI.NS", "TATAMOTORS.NS", "M&M.NS", "BAJAJ-AUTO.NS", "EICHERMOT.NS", "HEROMOTOCO.NS", "ASHOKLEY.NS", "TVSMOTOR.NS"],
+    "Pharma": ["SUNPHARMA.NS", "DRREDDY.NS", "CIPLA.NS", "DIVISLAB.NS", "TORNTPHARM.NS", "LUPIN.NS", "AUROPHARMA.NS", "ALKEM.NS", "MAXHEALTH.NS"],
+    "Metals": ["TATASTEEL.NS", "JSWSTEEL.NS", "HINDALCO.NS", "VEDL.NS", "SAIL.NS", "NMDC.NS", "NATIONALUM.NS", "JINDALSTEL.NS"],
+    "Retail": ["TITAN.NS", "TRENT.NS", "DMART.NS", "ABFRL.NS", "NYKAA.NS", "ZOMATO.NS", "PAGEIND.NS"],
+    "Infra": ["LT.NS", "ULTRACEMCO.NS", "GRASIM.NS", "DLF.NS", "GODREJPROP.NS", "ADANIPORTS.NS", "SIEMENS.NS", "ABB.NS", "CUMMINSIND.NS"],
+}
 
 RISK_FREE_RATE = 0.07  # India SBI FD rate
 HOLD_THRESHOLD = 0.02  # Weight delta < 2% → HOLD (avoid trivial trades)
@@ -42,10 +72,6 @@ MAX_SELL_FRACTION = 0.30  # Max 30% of any existing holding can be sold
 def run_analysis(user_stocks: list[str], quantities: list[float], buy_prices: list[float], new_cash: float):
     """
     Core analysis pipeline with full portfolio rebalancing (Buy + Sell + Hold).
-    user_stocks: list of NSE symbols e.g. ['TCS.NS', 'INFY.NS']
-    quantities:  number of shares held
-    buy_prices:  price at which they were bought
-    new_cash:    amount user wants to invest (can be 0)
     """
 
     # ── 1. Build current portfolio cost basis ─────────────────────────────────
@@ -53,11 +79,19 @@ def run_analysis(user_stocks: list[str], quantities: list[float], buy_prices: li
     total_invested = sum(invested)
     allocation = {sym: val for sym, val in zip(user_stocks, invested)}
 
-    # ── 2. Fetch live price data ───────────────────────────────────────────────
+    # ── 2. Smart Diversifier Selection ────────────────────────────────────────
+    # We download data for user stocks + a smart subset of the diversifier pool
+    # to keep performance fast while having access to "all" major stocks.
     cleaned_user_stocks = list(dict.fromkeys(
         s for s in user_stocks if not s.startswith("NSE_")
     ))
-    all_symbols = list(set(cleaned_user_stocks) | set(DIVERSIFIER_POOL))
+    
+    # Pick 3 leaders from every sector to form a high-impact universe of ~40 stocks
+    smart_diversifiers = []
+    for sector, stocks in SECTOR_MAPPING.items():
+        smart_diversifiers.extend(stocks[:4]) # Pick top 4 from each sector
+        
+    all_symbols = list(set(cleaned_user_stocks) | set(smart_diversifiers))
 
     try:
         raw = yf.download(all_symbols, period="2y", auto_adjust=True, progress=False, threads=True)["Close"]

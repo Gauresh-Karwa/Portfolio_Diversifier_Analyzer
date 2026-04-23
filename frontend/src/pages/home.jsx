@@ -58,13 +58,13 @@ const IDEAL_BANDS = {
 
 // ─── Sidebar nav ──────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
-  { key: "dashboard", label: "Dashboard",         icon: "dashboard" },
-  { key: "upload",    label: "Upload CSV",         icon: "upload" },
-  { key: "manual",    label: "Manual Entry",       icon: "edit" },
-  { key: "analysis",  label: "Analysis",           icon: "chart" },
-  { key: "sectors",   label: "Sector Intelligence",icon: "pie" },
-  { key: "risklab",   label: "Risk & Return Analytics", icon: "wave" },
-  { key: "profile",   label: "Investor Profile",   icon: "user" },
+  { key: "dashboard", label: "Dashboard", icon: "dashboard" },
+  { key: "upload", label: "Upload CSV", icon: "upload" },
+  { key: "manual", label: "Manual Entry", icon: "edit" },
+  { key: "analysis", label: "Analysis", icon: "chart" },
+  { key: "sectors", label: "Sector Intelligence", icon: "pie" },
+  { key: "risklab", label: "Risk & Return Analytics", icon: "wave" },
+  { key: "profile", label: "Investor Profile", icon: "user" },
 ];
 
 // ─── CSV parser ───────────────────────────────────────────────────────────────
@@ -382,7 +382,7 @@ function BacktestChart({ dates, current, optimized, benchmark }) {
   const yTickVals = Array.from({ length: 5 }, (_, i) => minV + (i / 4) * vRange);
   const xLabelIdxs = Array.from({ length: 6 }, (_, i) => Math.round(i * (N - 1) / 5));
   const series = [
-    { key: 'current',   data: current,   color: '#F59E0B', label: 'Current Portfolio' },
+    { key: 'current', data: current, color: '#F59E0B', label: 'Current Portfolio' },
     { key: 'optimized', data: optimized, color: '#6366F1', label: 'Optimised Portfolio' },
     { key: 'benchmark', data: benchmark, color: '#94A3B8', label: 'Nifty 50' },
   ];
@@ -402,9 +402,9 @@ function BacktestChart({ dates, current, optimized, benchmark }) {
     <div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         {[
-          { label: 'Current Portfolio',   val: pct(lastC), color: '#D97706', bg: '#FFFBEB' },
+          { label: 'Current Portfolio', val: pct(lastC), color: '#D97706', bg: '#FFFBEB' },
           { label: 'Optimised Portfolio', val: pct(lastO), color: '#4F46E5', bg: '#EEF2FF' },
-          { label: 'Nifty 50',            val: pct(lastB), color: '#64748B', bg: '#F8FAFC' },
+          { label: 'Nifty 50', val: pct(lastB), color: '#64748B', bg: '#F8FAFC' },
           { label: 'AI Edge', val: `${edge >= 0 ? '+' : ''}${edge.toFixed(2)}%`, color: edge >= 0 ? '#059669' : '#DC2626', bg: edge >= 0 ? '#F0FDF4' : '#FEF2F2' },
         ].map(s => (
           <div key={s.label} className="rounded-xl p-4 text-center" style={{ background: s.bg }}>
@@ -445,7 +445,7 @@ function BacktestChart({ dates, current, optimized, benchmark }) {
               <line x1={0} y1={yS(1)} x2={cW} y2={yS(1)} stroke="#CBD5E1" strokeWidth={1} strokeDasharray="4,4" />
             )}
             {series.map(s => (
-              <path key={`a-${s.key}`} d={`${toPath(s.data)} L ${xS(N-1)} ${cH} L ${xS(0)} ${cH} Z`} fill={`url(#bt-${s.key})`} />
+              <path key={`a-${s.key}`} d={`${toPath(s.data)} L ${xS(N - 1)} ${cH} L ${xS(0)} ${cH} Z`} fill={`url(#bt-${s.key})`} />
             ))}
             {series.map(s => (
               <path key={`l-${s.key}`} d={toPath(s.data)} fill="none" stroke={s.color} strokeWidth={2.5} strokeLinejoin="round" />
@@ -746,7 +746,7 @@ export default function Home() {
       toast.error("Please run the analysis first.");
       return;
     }
-    
+
     try {
       toast.info("Generating Premium Analysis Report...", { autoClose: 3000 });
 
@@ -920,7 +920,7 @@ export default function Home() {
                 {[
                   { label: "Total Value", val: `₹${totalValue.toLocaleString("en-IN")}`, sub: "Equity invested", color: "#3B82F6" },
                   { label: "Investments", val: investments.length, sub: "Stocks / Funds", color: "#8B5CF6" },
-                  { label: "Equity Types", val: analysis ? `${analysis.activeBuckets} / 4` : "— / 4", sub: "Active categories", color: "#06B6D4" },
+                  { label: "Equity Types", val: analysis ? `${analysis.activeBuckets} / 3` : "— / 3", sub: "Active categories", color: "#06B6D4" },
                   { label: "Divers. Score", val: analysis ? `${analysis.score}/100` : "—", sub: "Higher = better", color: "#10B981" },
                 ].map(({ label, val, sub, color }) => (
                   <div key={label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
@@ -1071,16 +1071,16 @@ export default function Home() {
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="bg-gray-50">
-                        {["Investment Name", "Amount", "Category (optional)"].map(h => (
+                        {["Investment Name (TICKER)", "Amount", "Category"].map(h => (
                           <th key={h} className="px-3 py-2 text-left text-gray-500 font-semibold">{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
                       {[
-                        ["RELIANCE", "2", "3000", "Large Cap"],
-                        ["TCS", "5", "4200", ""],
-                        ["HDFC Bank", "10", "1600", ""],
+                        ["RELIANCE", "3000", "Large Cap"],
+                        ["TCS", "4200", "Mid Cap"],
+                        ["HDFCBANK", "1600", "Small Cap"],
                       ].map((row, i) => (
                         <tr key={i}>
                           {row.map((cell, j) => (
@@ -1093,9 +1093,6 @@ export default function Home() {
                     </tbody>
                   </table>
                 </div>
-                <p className="text-xs text-gray-400 mt-3">
-                  💡 Works with common broker exports (Instrument, Qty, Avg Price, etc).
-                </p>
               </div>
             </div>
           )}
