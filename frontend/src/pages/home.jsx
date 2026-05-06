@@ -911,9 +911,15 @@ export default function Home() {
           {/* ════ DASHBOARD ════ */}
           {activeNav === "dashboard" && (
             <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Welcome back, {loggedInUser} 👋</h2>
-                <p className="text-sm text-gray-500 mt-1">Analyze how well your equity is spread across Large Cap, Mid Cap, and Small Cap NSE stocks.</p>
+              <div className="section-band">
+                <div className="split-header">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-blue-600 font-semibold">Equity Spotlight</p>
+                    <h2 className="text-3xl font-bold text-slate-900">Welcome back, {loggedInUser} 👋</h2>
+                  </div>
+                  <div className="stats-pill">NSE portfolio analytics</div>
+                </div>
+                <p className="section-band__note mt-4">Analyze how well your equity is spread across Large Cap, Mid Cap, and Small Cap NSE stocks.</p>
               </div>
 
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -923,23 +929,23 @@ export default function Home() {
                   { label: "Equity Types", val: analysis ? `${analysis.activeBuckets} / 3` : "— / 3", sub: "Active categories", color: "#06B6D4" },
                   { label: "Divers. Score", val: analysis ? `${analysis.score}/100` : "—", sub: "Higher = better", color: "#10B981" },
                 ].map(({ label, val, sub, color }) => (
-                  <div key={label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">{label}</p>
+                  <div key={label} className="unique-panel p-5">
+                    <div className="unique-panel__title text-xs uppercase tracking-[0.18em] text-slate-500">{label}</div>
                     <p className="text-2xl font-bold mt-1" style={{ color }}>{val}</p>
-                    <p className="text-xs text-gray-400 mt-1">{sub}</p>
+                    <p className="text-xs text-slate-500 mt-1">{sub}</p>
                   </div>
                 ))}
               </div>
 
               {/* Cash to invest input */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="unique-panel unique-panel--soft p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center">
                     <Icon d={ICONS.plus} size={20} color="#10B981" strokeWidth={2} />
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-gray-800">New Investment Capital</h4>
-                    <p className="text-xs text-gray-400">Add cash to see buy recommendations</p>
+                    <p className="text-xs text-slate-500">Add cash to see buy recommendations</p>
 
                   </div>
                 </div>
@@ -966,8 +972,8 @@ export default function Home() {
               </div>
 
               {/* Equity type guide */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Equity Categories & Ideal Allocation Bands</h3>
+              <div className="unique-panel p-5">
+                <div className="unique-panel__title text-sm uppercase tracking-[0.18em] text-slate-500 mb-3">Equity Categories & Ideal Allocation Bands</div>
                 <div className="grid sm:grid-cols-2 gap-3">
                   {CATEGORIES.map(cat => (
                     <div key={cat} className="flex items-start gap-3 p-3 rounded-xl border border-gray-100">
@@ -982,8 +988,8 @@ export default function Home() {
               </div>
 
               {/* Quick actions */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Get Started</h3>
+              <div className="unique-panel unique-panel--amber p-5">
+                <div className="unique-panel__title text-sm uppercase tracking-[0.18em] text-slate-500 mb-3">Get Started</div>
                 <div className="grid sm:grid-cols-3 gap-3">
                   {[
                     { key: "upload", label: "Upload CSV", icon: "upload", desc: "Import 100+ equity investments", color: "#3B82F6" },
@@ -1005,10 +1011,10 @@ export default function Home() {
               </div>
 
               {investments.length === 0 && (
-                <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 text-center">
-                  <Icon d={ICONS.file} size={32} color="#93C5FD" strokeWidth={1.5} />
-                  <p className="mt-3 text-sm font-semibold text-blue-700">No equity investments yet</p>
-                  <p className="text-xs text-blue-500 mt-1">Upload a CSV or add entries manually to begin your equity analysis.</p>
+                <div className="section-band text-center mx-auto max-w-xl">
+                  <Icon d={ICONS.file} size={32} color="#3B82F6" strokeWidth={1.5} />
+                  <p className="mt-3 text-sm font-semibold text-slate-900">No equity investments yet</p>
+                  <p className="section-band__note mt-1">Upload a CSV or add entries manually to begin your equity analysis.</p>
                 </div>
               )}
             </div>
@@ -1065,8 +1071,8 @@ export default function Home() {
                 </div>
               )}
 
-              <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Expected CSV Format</h3>
+              <div className="unique-panel p-5">
+                <div className="unique-panel__title text-sm uppercase tracking-[0.18em] text-slate-500 mb-3">Expected CSV Format</div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
@@ -1106,7 +1112,7 @@ export default function Home() {
               </div>
 
 
-              <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="unique-panel unique-panel--soft p-5 space-y-4">
                 <div className="grid sm:grid-cols-3 gap-3">
                   <div className="relative">
                     <label className="text-xs text-gray-500 font-medium mb-1 block">NSE Stock Symbol *</label>
@@ -1181,8 +1187,8 @@ export default function Home() {
               </div>
 
               {investments.length > 0 && (
-                <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-                  <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+                <div className="unique-panel p-0 overflow-hidden">
+                  <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-slate-50/80">
                     <h3 className="text-sm font-semibold text-gray-700">{investments.length} Investments</h3>
                     <span className="text-xs text-gray-400">Total: ₹{totalValue.toLocaleString("en-IN")}</span>
                   </div>
@@ -1227,7 +1233,7 @@ export default function Home() {
                 <h2 className="text-2xl font-bold text-gray-900">Investor Profile</h2>
                 <p className="text-sm text-gray-500 mt-1">Your age and goal determine the ideal equity mix (Large Cap vs Mid Cap vs Small Cap).</p>
               </div>
-              <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm space-y-5">
+              <div className="unique-panel p-6 space-y-5">
                 <div>
                   <label className="text-sm font-semibold text-gray-700 block mb-2">Your Age</label>
                   <input type="number" min={18} max={100}
@@ -1286,9 +1292,15 @@ export default function Home() {
           {/* ════ ANALYSIS ════ */}
           {activeNav === "analysis" && (
             <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Portfolio Health Report</h2>
-                <p className="text-sm text-gray-500 mt-1">Deep analysis powered by Modern Portfolio Theory and Mean-Variance Optimization.</p>
+              <div className="section-band">
+                <div className="split-header">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-blue-600 font-semibold">Health insights</p>
+                    <h2 className="text-3xl font-bold text-slate-900">Portfolio Health Report</h2>
+                  </div>
+                  <div className="stats-pill">MPT + risk optimization</div>
+                </div>
+                <p className="section-band__note mt-4">Deep analysis powered by Modern Portfolio Theory and Mean-Variance Optimization.</p>
               </div>
 
               {!mlData && !analysis && !mlLoading ? (
@@ -1302,16 +1314,16 @@ export default function Home() {
                 <div className="space-y-6">
                   {/* Status cards */}
                   <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Diversification</p>
+                    <div className="unique-panel p-5">
+                      <div className="unique-panel__title text-[10px] uppercase tracking-[0.18em] text-slate-500">Diversification</div>
                       <p className={`text-xl font-bold mt-1 ${analysis?.diversified ? "text-emerald-600" : "text-amber-500"}`}>
                         {analysis?.diversified ? "OPTIMAL" : "IMBALANCED"}
                       </p>
                     </div>
                     {mlData && (
                       <>
-                        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Exp. Annual Return</p>
+                        <div className="unique-panel p-5">
+                          <div className="unique-panel__title text-[10px] uppercase tracking-[0.18em] text-slate-500">Exp. Annual Return</div>
                           <div className="flex items-baseline gap-2 mt-1">
                             <p className="text-xl font-bold text-blue-600">{mlData.metrics.expected_annual_return_pct}%</p>
                             {mlData.pro_forma?.expected_annual_return_pct && (
@@ -1319,8 +1331,8 @@ export default function Home() {
                             )}
                           </div>
                         </div>
-                        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Annual Volatility</p>
+                        <div className="unique-panel p-5">
+                          <div className="unique-panel__title text-[10px] uppercase tracking-[0.18em] text-slate-500">Annual Volatility</div>
                           <div className="flex items-baseline gap-2 mt-1">
                             <p className="text-xl font-bold text-indigo-600">{mlData.metrics.annual_volatility_pct}%</p>
                             {mlData.pro_forma?.annual_volatility_pct && (
@@ -1328,8 +1340,8 @@ export default function Home() {
                             )}
                           </div>
                         </div>
-                        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Sharpe Ratio</p>
+                        <div className="unique-panel p-5">
+                          <div className="unique-panel__title text-[10px] uppercase tracking-[0.18em] text-slate-500">Sharpe Ratio</div>
                           <div className="flex items-baseline gap-2 mt-1">
                             <p className="text-xl font-bold text-emerald-600">{mlData.metrics.sharpe_ratio}</p>
                             {mlData.pro_forma?.sharpe_ratio && (
@@ -1363,7 +1375,7 @@ export default function Home() {
 
 
                   {mlLoading ? (
-                    <div className="bg-white border border-gray-100 rounded-2xl p-12 shadow-sm flex flex-col items-center justify-center text-center">
+                    <div className="unique-panel unique-panel--soft p-12 flex flex-col items-center justify-center text-center">
                       <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
                       <h3 className="text-lg font-bold text-gray-900">Analysis Engine is Running...</h3>
 
@@ -1372,16 +1384,12 @@ export default function Home() {
                   ) : (
                     <>
                       <div className="grid md:grid-cols-2 gap-6">
-                        <div id="donut-chart" className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm" style={{ backgroundColor: '#ffffff', borderColor: '#f3f4f6' }}>
-                          <h3 className="text-sm font-bold mb-6 flex items-center gap-2" style={{ color: '#1f2937' }}>
-                            Current Distribution
-                          </h3>
+                        <div id="donut-chart" className="unique-panel p-6" style={{ backgroundColor: '#ffffff', borderColor: '#f3f4f6' }}>
+                          <div className="unique-panel__title text-sm text-slate-500 mb-4">Current Distribution</div>
                           <DonutChart pct={analysis?.pct || {}} alloc={analysis?.alloc || {}} />
                         </div>
-                        <div id="benchmark-chart" className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm" style={{ backgroundColor: '#ffffff', borderColor: '#f3f4f6' }}>
-                          <h3 className="text-sm font-bold mb-6 flex items-center gap-2" style={{ color: '#1f2937' }}>
-                            Diversification Benchmark
-                          </h3>
+                        <div id="benchmark-chart" className="unique-panel p-6" style={{ backgroundColor: '#ffffff', borderColor: '#f3f4f6' }}>
+                          <div className="unique-panel__title text-sm text-slate-500 mb-4">Diversification Benchmark</div>
                           <BenchmarkChart pct={analysis?.pct || {}} age={age} goal={goal} />
                         </div>
                       </div>
@@ -1416,8 +1424,8 @@ export default function Home() {
 
                           {/* ── Rebalancing Action Plan ── */}
                           {mlData.rebalance_actions && mlData.rebalance_actions.length > 0 && (
-                            <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-                              <div className="px-6 py-4 border-b border-gray-100">
+                            <div className="unique-panel p-0 overflow-hidden">
+                              <div className="px-6 py-4 border-b border-gray-100 bg-slate-50/80">
                                 <h3 className="text-base font-bold text-gray-900">Rebalancing Action Plan</h3>
                                 <p className="text-xs text-gray-400 mt-0.5">
                                   {investmentCash > 0
@@ -1501,7 +1509,7 @@ export default function Home() {
                             </div>
                           )}
                           {/* ── Backtesting "What If" Panel ── */}
-                          <div id="backtest-panel" className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+                          <div id="backtest-panel" className="unique-panel p-0 overflow-hidden">
                             {/* Header */}
                             <div className="px-6 py-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                               style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%)" }}>

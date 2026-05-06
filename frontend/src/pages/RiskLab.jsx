@@ -340,7 +340,7 @@ export default function RiskLab({ investments }) {
 
       {/* Loading State */}
       {loading && (
-        <div className="bg-white border border-gray-100 rounded-3xl p-16 text-center shadow-sm">
+        <div className="bg-slate-50 ring-1 ring-slate-100 border-l-4 border-indigo-200 rounded-[28px] p-16 text-center">
             <div className="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mx-auto mb-6"></div>
             <h3 className="text-lg font-bold text-gray-800">Processing Data...</h3>
             <p className="text-sm text-gray-400 mt-2">Fetching live market data and calculating annualized metrics.</p>
@@ -352,7 +352,7 @@ export default function RiskLab({ investments }) {
         <div className="space-y-8 animate-in fade-in duration-700">
           
           {/* Risk/Return Quadrant */}
-          <div className="bg-white border border-gray-100 rounded-3xl p-6 md:p-8 shadow-sm">
+          <div className="bg-slate-50 ring-1 ring-slate-100 border-l-4 border-cyan-200 rounded-[28px] p-6 md:p-8">
             <div className="mb-6">
               <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
@@ -366,7 +366,7 @@ export default function RiskLab({ investments }) {
           </div>
 
           {/* Stock Movements */}
-          <div className="bg-white border border-gray-100 rounded-3xl p-6 md:p-8 shadow-sm">
+          <div className="bg-slate-50 ring-1 ring-slate-100 border-l-4 border-cyan-200 rounded-[28px] p-6 md:p-8">
             <div className="mb-6">
               <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>

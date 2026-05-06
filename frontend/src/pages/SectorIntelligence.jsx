@@ -320,7 +320,7 @@ export default function SectorIntelligencePage({ investments }) {
 
       {/* ── Loading ── */}
       {loading && (
-        <div className="bg-white border border-gray-100 rounded-2xl p-16 flex flex-col items-center text-center shadow-sm gap-4">
+        <div className="bg-slate-50 ring-1 ring-slate-100 border-l-4 border-indigo-200 rounded-[28px] p-16 flex flex-col items-center text-center gap-4">
           <div className="w-14 h-14 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
           <p className="text-base font-bold text-gray-700">Fetching Sector Data…</p>
           <p className="text-sm text-gray-400 max-w-xs">
@@ -368,7 +368,7 @@ export default function SectorIntelligencePage({ investments }) {
               { label: "HHI Index",        val: sectorData.herfindahl_index?.toFixed(3), sub: "<0.15 well diversified",  color: "#06B6D4" },
               { label: "Concentration",    val: sectorData.concentration_risk,           sub: "risk level",              color: RISK_COLORS[sectorData.concentration_risk] },
             ].map(({ label, val, sub, color }) => (
-              <div key={label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <div key={label} className="bg-slate-50 ring-1 ring-slate-100 border-l-4 border-cyan-200 rounded-[28px] p-5">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{label}</p>
                 <p className="text-xl font-bold mt-1 truncate" style={{ color }}>{val}</p>
                 <p className="text-xs text-gray-400 mt-1">{sub}</p>
@@ -379,7 +379,7 @@ export default function SectorIntelligencePage({ investments }) {
           {/* Treemap + Ring */}
           <div className="grid lg:grid-cols-3 gap-6">
             {/* Treemap */}
-            <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <div className="lg:col-span-2 bg-slate-50 ring-1 ring-slate-100 border-l-4 border-cyan-200 rounded-[28px] p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-sm font-bold text-gray-900">Sector Treemap</h3>
@@ -390,7 +390,7 @@ export default function SectorIntelligencePage({ investments }) {
             </div>
 
             {/* Risk Gauge + Ring */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col items-center gap-6">
+            <div className="bg-slate-50 ring-1 ring-slate-100 border-l-4 border-cyan-200 rounded-[28px] p-6 flex flex-col items-center gap-6">
               <div>
                 <h3 className="text-sm font-bold text-gray-900 text-center mb-4">Diversification Score</h3>
                 <RiskGauge score={sectorData.risk_score} level={sectorData.concentration_risk} />
@@ -405,14 +405,14 @@ export default function SectorIntelligencePage({ investments }) {
           {/* Industry Bars + Stock Table */}
           <div className="grid lg:grid-cols-2 gap-6">
             {/* Industry bars */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <div className="bg-slate-50 ring-1 ring-slate-100 border-l-4 border-cyan-200 rounded-[28px] p-6">
               <h3 className="text-sm font-bold text-gray-900 mb-1">Top Industries</h3>
               <p className="text-xs text-gray-400 mb-4">Granular breakdown within sectors</p>
               <IndustryBars industryData={sectorData.industry_data} />
             </div>
 
             {/* Stock-level table */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="bg-slate-50 ring-1 ring-slate-100 border-l-4 border-cyan-200 rounded-[28px] overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-100">
                 <h3 className="text-sm font-bold text-gray-900">Holdings by Sector</h3>
                 <p className="text-xs text-gray-400 mt-0.5">Each stock mapped to its sector & industry</p>
